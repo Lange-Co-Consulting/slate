@@ -23,14 +23,14 @@ echo "[dmg] building release binary…"
 # The free, open-source app is built by public cloners with a plain `swift build`
 # (no SLATE_PRO, no ../slate-pro), never by this script.
 if [ "$OWNER_BUILD" = "true" ]; then
-  SLATE_PRO=1 swift build -c release --disable-sandbox -Xswiftc -DSLATE_OWNER
+  SLATE_PRO=1 swift build -c release --disable-sandbox --build-path .build-pro -Xswiftc -DSLATE_OWNER
 else
-  SLATE_PRO=1 swift build -c release --disable-sandbox
+  SLATE_PRO=1 swift build -c release --disable-sandbox --build-path .build-pro
 fi
 
-BIN=".build/release/SlateApp"
+BIN=".build-pro/release/SlateApp"
 test -f "$BIN" || { echo "[dmg] binary not found at $BIN"; exit 1; }
-CLI=".build/release/slatectl"
+CLI=".build-pro/release/slatectl"
 test -f "$CLI" || { echo "[dmg] CLI not found at $CLI"; exit 1; }
 
 APP="Slate.app"

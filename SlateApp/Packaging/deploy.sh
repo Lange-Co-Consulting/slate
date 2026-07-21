@@ -13,10 +13,12 @@ echo "[deploy] building release binary (OWNER build: all Pro features unlocked)â
 # Pro for the operator's local app ONLY. A public clone has neither, so it builds the
 # free app. The paid public DMG (build-dmg.sh) sets SLATE_PRO=1 but omits -DSLATE_OWNER,
 # keeping the paywall live.
-SLATE_PRO=1 swift build -c release --disable-sandbox -Xswiftc -DSLATE_OWNER
-BIN=".build/release/SlateApp"
+# --build-path .build-pro keeps the Pro build in its OWN dir: a plain `swift build` /
+# `swift run SlateApp` (free) uses .build and can never pick up stale Pro artifacts.
+SLATE_PRO=1 swift build -c release --disable-sandbox --build-path .build-pro -Xswiftc -DSLATE_OWNER
+BIN=".build-pro/release/SlateApp"
 test -f "$BIN" || { echo "[deploy] binary not found at $BIN"; exit 1; }
-CLI=".build/release/slatectl"
+CLI=".build-pro/release/slatectl"
 test -f "$CLI" || { echo "[deploy] CLI not found at $CLI"; exit 1; }
 
 STAGE="$(mktemp -d)"
