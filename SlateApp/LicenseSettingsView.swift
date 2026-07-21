@@ -46,7 +46,7 @@ enum ProFeature: String, Identifiable, CaseIterable {
         switch self {
         case .flow:    return "Dictate into any app on your Mac with one hotkey, cleaned up by a local model."
         case .code:    return "Let the coding agent write and edit files directly - not just read them."
-        case .agents:  return "Let two or three models discuss a task in a structured, attributed roundtable."
+        case .agents:  return "Let several models discuss a task in a structured, attributed roundtable."
         case .image:   return "Generate images on-device with your own local image model."
         case .voice:   return "Talk to Slate hands-free, fully offline."
         case .memory:  return "Slate remembers durable facts about you and uses them in later chats."

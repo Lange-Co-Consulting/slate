@@ -323,7 +323,7 @@ struct SidebarView: View {
                 navRow(.image, "Image", "photo", pro: .imageGeneration,
                        hint: "Local image generation is a Pro feature.")
                 navRow(.agents, "Roundtable", "person.3", pro: .modelCompare,
-                       hint: "Free: 2 models. Pro: 3 models plus a closing synthesis.")
+                       hint: "Free: 2 models. Pro: as many models as you want, plus a closing synthesis.")
             }
             .padding(.horizontal, 8).padding(.top, 8)
             .animation(.snappy(duration: 0.18), value: tab)

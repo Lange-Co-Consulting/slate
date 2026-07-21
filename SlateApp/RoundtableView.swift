@@ -245,6 +245,9 @@ struct RoundtableSetup: View {
     private var candidates: [RoundtableCandidate] { model.roundtableCandidates }
     /// Freemium seat cap: Free 2, Pro 3. Synthesis is Pro-only.
     private var modelCap: Int { model.pro.roundtableModelCap }
+    /// Pro has no fixed seat limit (`.max`); the RAM readout + preflight are the
+    /// real guard. Free is capped at 2.
+    private var unlimitedSeats: Bool { modelCap == .max }
     private var synthesisAllowed: Bool { model.pro.roundtableSynthesisAllowed }
     private var canProceed: Bool { selected.count >= 2 && selected.count <= modelCap }
     private var canStart: Bool {
@@ -305,7 +308,7 @@ struct RoundtableSetup: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Roundtable").font(.largeTitle.weight(.semibold))
-            Text("Let two or three models discuss a topic in turns - each one sees the others' points and builds on them. Everything runs locally unless you add a cloud seat.")
+            Text("Let several models discuss a topic in turns - each one sees the others' points and builds on them. Everything runs locally unless you add a cloud seat.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -345,7 +348,8 @@ struct RoundtableSetup: View {
             HStack {
                 Text("Participants").font(.headline)
                 Spacer()
-                Text("\(selected.count)/\(modelCap)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text(unlimitedSeats ? "\(selected.count)" : "\(selected.count)/\(modelCap)")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             if candidates.isEmpty {
                 emptyCandidates
@@ -404,7 +408,7 @@ struct RoundtableSetup: View {
     private func candidateRow(_ c: RoundtableCandidate) -> some View {
         let seat = selected.firstIndex(of: c.ref)
         let isOn = seat != nil
-        let full = selected.count >= 3 && !isOn
+        let full = !isOn && !unlimitedSeats && selected.count >= 3
         VStack(alignment: .leading, spacing: 8) {
             Button { toggle(c.ref) } label: {
                 HStack(spacing: 11) {

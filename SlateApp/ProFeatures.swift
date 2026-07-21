@@ -67,7 +67,7 @@ struct SlateProFeatures: ProFeatures {
     func clearLocalStateForDataDeletion() { license.clearLocalStateForDataDeletion() }
     var trialAvailable: Bool { license.trialAvailable }
     func startTrial() { license.startTrial() }
-    var roundtableModelCap: Int { license.isPro ? 3 : 2 }
+    var roundtableModelCap: Int { license.isPro ? .max : 2 }
     var roundtableSynthesisAllowed: Bool { license.isPro }
 }
 #endif
