@@ -6,7 +6,11 @@ import SlateCore
 struct SlateApp: App {
     @State private var model = AppModel()
     @State private var flow = FlowRuntime()
+    // Slate Quick is a Pro-only overlay that lives in slate-pro (Phase 3): only the
+    // official build constructs its controller and registers the ⌥Space hotkey.
+    #if SLATE_PRO
     @State private var quick = QuickPanelController()
+    #endif
 
     private var menuBarBinding: Binding<Bool> {
         Binding(get: { model.settings.menuBarEnabled },
@@ -35,7 +39,9 @@ struct SlateApp: App {
                 .task {
                     model.bootstrap()
                     flow.connectLLM(model); flow.start()
-                    quick.connect(model); quick.start()
+                    #if SLATE_PRO
+                    quick.connect(host: model); quick.start()
+                    #endif
                 }
         }
         .defaultPosition(.center)

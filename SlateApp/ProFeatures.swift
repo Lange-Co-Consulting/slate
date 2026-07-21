@@ -185,6 +185,21 @@ struct SlateProFeatures: ProFeatures {
                                       requirePro: requirePro, onViewAudit: onViewAudit))
     }
 }
+
+/// The host contract slate-pro's Pro feature views call back through (Phase 3). Only
+/// the official build links slate-pro, so this conformance is `#if SLATE_PRO`. Every
+/// member is a narrowed view onto app state — never the app's fat types.
+extension AppModel: ProHost {
+    func requireCapability(_ cap: SlateCapability) -> Bool {
+        if pro.allows(cap) { return true }
+        if let feature = ProFeature.allCases.first(where: { $0.capability == cap }) { proUpsell = feature }
+        return false
+    }
+    var quickEnabled: Bool { settings.quickEnabled }
+    var palette: SlatePalette { settings.palette }
+    var themeColorScheme: ColorScheme? { settings.theme.colorScheme }
+    // `isModelLoaded` and `quickGenerate(system:user:imagePath:)` already exist on AppModel.
+}
 #endif
 
 /// The locked-feature surface shown in the free build where a Pro view would be.
