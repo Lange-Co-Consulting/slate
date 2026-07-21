@@ -4,6 +4,7 @@
 
 &nbsp;
 
+[![Build](https://img.shields.io/github/actions/workflow/status/Lange-Co-Consulting/slate/build.yml?style=flat-square&label=build&color=1f2328)](https://github.com/Lange-Co-Consulting/slate/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/Lange-Co-Consulting/slate?style=flat-square&color=1f2328&label=release)](https://github.com/Lange-Co-Consulting/slate/releases)
 ![macOS 26+](https://img.shields.io/badge/macOS-26%2B-1f2328?style=flat-square&logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-1f2328?style=flat-square&logo=swift&logoColor=white)
