@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in the Slate app is broken or behaving unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. For anything
+        security-sensitive, please follow SECURITY.md instead of filing here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "e.g. macOS 26.1"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model(s) involved
+      description: The local model or cloud provider in use, if relevant.
+      placeholder: "e.g. Mistral 7B (GGUF), or OpenAI gpt-4o"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Any relevant console output or screenshots. Please redact anything private.
+      render: shell

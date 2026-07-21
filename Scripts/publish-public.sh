@@ -10,8 +10,9 @@ set -euo pipefail
 #
 #   Scripts/publish-public.sh ["commit message"]
 #
-# Excludes (kept private): docs/, CLAUDE.md, landing/ (deployed separately),
-# Support/, Package.resolved (regenerated in the public clone).
+# Excludes: docs/, CLAUDE.md, landing/ (deployed separately), Support/,
+# Package.resolved (regenerated in the public clone), and .github/workflows/
+# (CI is a canonical-repo concern; the self-hosted runner does not fit the mirror).
 
 PUBLIC_URL="https://github.com/Lange-Co-Consulting/slate.git"
 MSG="${1:-Sync from private repo}"
@@ -23,7 +24,7 @@ trap 'rm -rf "$WORK" "$EXPORT"' EXIT
 
 git clone -q "$PUBLIC_URL" "$WORK/pub"
 git archive HEAD | tar -x -C "$EXPORT"
-rm -rf "$EXPORT/docs" "$EXPORT/CLAUDE.md" "$EXPORT/landing" "$EXPORT/Support" "$EXPORT/Package.resolved"
+rm -rf "$EXPORT/docs" "$EXPORT/CLAUDE.md" "$EXPORT/landing" "$EXPORT/Support" "$EXPORT/Package.resolved" "$EXPORT/.github/workflows"
 
 # Mirror the curated tree into the public clone (preserve its .git + Package.resolved).
 rsync -a --delete --exclude='.git' --exclude='.build' --exclude='Package.resolved' "$EXPORT/" "$WORK/pub/"

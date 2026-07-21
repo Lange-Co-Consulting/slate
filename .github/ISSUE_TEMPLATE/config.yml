@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Website & Pro
+    url: https://slate-app.org
+    about: Product info, pricing, and the paid layer (SlatePro).
+  - name: Security disclosure
+    url: https://github.com/Lange-Co-Consulting/slate/blob/main/SECURITY.md
+    about: Please report security issues privately, not as a public issue.
