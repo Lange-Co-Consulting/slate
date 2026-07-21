@@ -381,7 +381,7 @@ struct RoundtableSetup: View {
         let medium = local.filter { $0.sizeGB >= 3.5 && $0.sizeGB < 9 }
         let large = local.filter { $0.sizeGB >= 9 }
         if !small.isEmpty  { groups.append(("Small",  "best chance for 2-3 seats", small)) }
-        if !medium.isEmpty { groups.append(("Medium", "usually one seat — check the estimate", medium)) }
+        if !medium.isEmpty { groups.append(("Medium", "usually one seat, check the estimate", medium)) }
         if !large.isEmpty  { groups.append(("Large",  "usually too heavy for a roundtable", large)) }
         if !cloud.isEmpty  { groups.append(("Cloud",  "no local memory", cloud)) }
         return groups.map { (label: $0.0, hint: $0.1, items: $0.2) }

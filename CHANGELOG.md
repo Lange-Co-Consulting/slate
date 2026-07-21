@@ -3,10 +3,15 @@
 All notable user-facing changes to Slate are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-07-21
 
 ### Added
 
+- **Open source.** The Slate app is now open source (MIT). The local-AI engine
+  (`slate-engine`) and design system (`slate-ui`) are public Swift packages; a
+  small paid layer (SlatePro) is separate and optional.
+- **Roundtable is now freemium:** free users get a 2-model roundtable; Pro
+  unlocks a 3rd seat and the closing synthesis turn.
 - Beta release channel metadata and a signed, pinned update-feed configuration.
 - Reproducible checksums and complete license notices for every bundled native component.
 - Production-readiness metadata, privacy manifest and release verification.
