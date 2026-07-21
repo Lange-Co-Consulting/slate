@@ -4,6 +4,7 @@
 
 &nbsp;
 
+[![Release](https://img.shields.io/github/v/release/Lange-Co-Consulting/slate?style=flat-square&color=1f2328&label=release)](https://github.com/Lange-Co-Consulting/slate/releases)
 ![macOS 26+](https://img.shields.io/badge/macOS-26%2B-1f2328?style=flat-square&logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-1f2328?style=flat-square&logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-1f2328?style=flat-square)
@@ -76,7 +77,8 @@ checksummed release assets, with no manual provisioning.
 Slate is **open-core**. This repository, the app itself, is fully open source
 (MIT). It builds and runs completely on its own; a small paid layer (**SlatePro**:
 licensing + a few premium capabilities) is a separate private package the free
-build doesn't need. Pro-only features simply show an upgrade prompt.
+build doesn't need. Pro-only features simply show an upgrade prompt. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together.
 
 ```mermaid
 flowchart TD
