@@ -1,5 +1,7 @@
 import Foundation
+import SwiftUI
 import SlateCore
+import SlateUI
 #if SLATE_PRO
 import SlatePro
 #endif
@@ -40,6 +42,12 @@ protocol ProFeatures {
     /// `roundtableSynthesisAllowed` whether the synthesis turn may run.
     var roundtableModelCap: Int { get }
     var roundtableSynthesisAllowed: Bool { get }
+
+    /// View-factory seam (Phase 3): the app renders a Pro feature's surface through
+    /// this rather than constructing the Pro view directly. Free returns an upsell
+    /// placeholder; official returns the real view. When a feature's view later moves
+    /// physically into SlatePro, only this factory changes, not the call site.
+    func imageSurface(_ convo: Conversation) -> AnyView
 }
 
 /// Free build: only free-tier capabilities are permitted, and every licensing
@@ -54,6 +62,7 @@ struct DefaultFreeProFeatures: ProFeatures {
     func startTrial() {}
     var roundtableModelCap: Int { 2 }
     var roundtableSynthesisAllowed: Bool { false }
+    func imageSurface(_ convo: Conversation) -> AnyView { AnyView(ProFeaturePlaceholder(feature: .image)) }
 }
 
 #if SLATE_PRO
@@ -69,8 +78,32 @@ struct SlateProFeatures: ProFeatures {
     func startTrial() { license.startTrial() }
     var roundtableModelCap: Int { license.isPro ? .max : 2 }
     var roundtableSynthesisAllowed: Bool { license.isPro }
+    func imageSurface(_ convo: Conversation) -> AnyView { AnyView(ImageSectionView(convo: convo)) }
 }
 #endif
+
+/// The locked-feature surface shown in the free build where a Pro view would be.
+/// Tapping "Unlock" opens the upsell sheet for that feature. Phase 3: as each Pro
+/// view moves into SlatePro, the free build renders this instead, so no Pro feature
+/// code remains in the public repo.
+struct ProFeaturePlaceholder: View {
+    @Environment(AppModel.self) private var model
+    let feature: ProFeature
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: feature.icon).font(.system(size: 42, weight: .light))
+                .foregroundStyle(.secondary)
+            Text(feature.title).font(.title3.weight(.semibold))
+            Text(feature.blurb).font(.callout).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 360)
+            Button("Unlock with Slate Pro") { model.proUpsell = feature }
+                .buttonStyle(PaletteProminentButtonStyle()).controlSize(.large)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+    }
+}
 
 /// Marketing constants shown by the free-facing upsell (`ProUpsellView`), which must
 /// compile without SlatePro. These mirror SlatePro's `LicenseConfig` display values;

@@ -108,7 +108,7 @@ struct ConversationView: View {
     @ViewBuilder
     private func content(_ convo: Conversation) -> some View {
         if convo.kind == .image {
-            ImageSectionView(convo: convo)
+            model.pro.imageSurface(convo)
         } else if convo.kind == .agents {
             agentContent(convo)
         } else {
