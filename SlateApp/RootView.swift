@@ -318,9 +318,12 @@ struct SidebarView: View {
             // modes are added.
             VStack(spacing: 2) {
                 navRow(.chat, "Chats", "bubble.left.and.bubble.right")
-                navRow(.code, "Code", "chevron.left.forwardslash.chevron.right", pro: .codeEdits)
-                navRow(.image, "Image", "photo", pro: .imageGeneration)
-                navRow(.agents, "Roundtable", "person.3", pro: .modelCompare)
+                navRow(.code, "Code", "chevron.left.forwardslash.chevron.right", pro: .codeEdits,
+                       hint: "Free: Ask mode, you approve each change. Pro: Edits & Auto for hands-off editing.")
+                navRow(.image, "Image", "photo", pro: .imageGeneration,
+                       hint: "Local image generation is a Pro feature.")
+                navRow(.agents, "Roundtable", "person.3", pro: .modelCompare,
+                       hint: "Free: 2 models. Pro: 3 models plus a closing synthesis.")
             }
             .padding(.horizontal, 8).padding(.top, 8)
             .animation(.snappy(duration: 0.18), value: tab)
@@ -438,10 +441,11 @@ struct SidebarView: View {
     /// One row of the vertical mode nav: icon + label, full width, with a quiet
     /// selection highlight (the Mail / Notes source-list pattern).
     private func navRow(_ k: Conversation.Kind, _ label: String, _ icon: String,
-                        pro: SlateCapability? = nil) -> some View {
+                        pro: SlateCapability? = nil, hint: String = "") -> some View {
         let selected = tab == k
         // A PRO tag on features the current user can't fully use, so Pro is visible
         // up front instead of only being discovered via the upsell on first use.
+        // Hovering the tag (or the row) reveals what Free gives vs what Pro unlocks.
         let locked = pro.map { !model.pro.allows($0) } ?? false
         return Button { switchTab(k) } label: {
             HStack(spacing: 10) {
@@ -456,6 +460,7 @@ struct SidebarView: View {
                         .padding(.horizontal, 5).padding(.vertical, 1)
                         .background(Capsule().fill(.quaternary))
                         .foregroundStyle(.secondary)
+                        .help(hint.isEmpty ? "\(label) - Pro" : hint)
                 }
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
@@ -470,8 +475,9 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help(locked ? "\(label) - Pro" : label)
+        .help(locked && !hint.isEmpty ? hint : label)
         .accessibilityLabel(locked ? "\(label), Pro feature" : label)
+        .accessibilityHint(locked ? hint : "")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
