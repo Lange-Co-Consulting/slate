@@ -200,9 +200,16 @@ struct RootView: View {
             }
             // Wider for the sidebar/tab layout; still tracks small windows.
             .frame(minWidth: 720, idealWidth: 780, minHeight: 500, idealHeight: 640)
+            // A Pro gate hit from WITHIN Settings presents the upsell here, so it
+            // stacks ABOVE the Settings sheet instead of being trapped behind it.
+            .sheet(item: $model.proUpsell) { feature in
+                ProUpsellView(feature: feature).environment(model)
+            }
         }
-        // Pro upsell - shown whenever a Free user taps a locked feature.
-        .sheet(item: $model.proUpsell) { feature in
+        // Pro upsell for gates hit in the main UI. Suppressed while Settings is open
+        // (the Settings sheet above presents it instead), so the two never fight.
+        .sheet(item: Binding(get: { model.showSettings ? nil : model.proUpsell },
+                             set: { model.proUpsell = $0 })) { feature in
             ProUpsellView(feature: feature).environment(model)
         }
         .alert("Slate closed unexpectedly last time", isPresented: $model.showCrashPrompt) {
@@ -311,9 +318,9 @@ struct SidebarView: View {
             // modes are added.
             VStack(spacing: 2) {
                 navRow(.chat, "Chats", "bubble.left.and.bubble.right")
-                navRow(.code, "Code", "chevron.left.forwardslash.chevron.right")
-                navRow(.image, "Image", "photo")
-                navRow(.agents, "Roundtable", "person.3")
+                navRow(.code, "Code", "chevron.left.forwardslash.chevron.right", pro: .codeEdits)
+                navRow(.image, "Image", "photo", pro: .imageGeneration)
+                navRow(.agents, "Roundtable", "person.3", pro: .modelCompare)
             }
             .padding(.horizontal, 8).padding(.top, 8)
             .animation(.snappy(duration: 0.18), value: tab)
@@ -430,8 +437,12 @@ struct SidebarView: View {
 
     /// One row of the vertical mode nav: icon + label, full width, with a quiet
     /// selection highlight (the Mail / Notes source-list pattern).
-    private func navRow(_ k: Conversation.Kind, _ label: String, _ icon: String) -> some View {
+    private func navRow(_ k: Conversation.Kind, _ label: String, _ icon: String,
+                        pro: SlateCapability? = nil) -> some View {
         let selected = tab == k
+        // A PRO tag on features the current user can't fully use, so Pro is visible
+        // up front instead of only being discovered via the upsell on first use.
+        let locked = pro.map { !model.pro.allows($0) } ?? false
         return Button { switchTab(k) } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon)
@@ -439,9 +450,17 @@ struct SidebarView: View {
                     .frame(width: 20)
                 Text(label).font(.callout.weight(.medium))
                 Spacer(minLength: 0)
+                if locked {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .bold)).tracking(0.4)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Capsule().fill(.quaternary))
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
-            .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .foregroundStyle(selected ? AnyShapeStyle(.primary)
+                             : locked ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
             .background {
                 if selected {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -451,8 +470,8 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help(label)
-        .accessibilityLabel(label)
+        .help(locked ? "\(label) - Pro" : label)
+        .accessibilityLabel(locked ? "\(label), Pro feature" : label)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
