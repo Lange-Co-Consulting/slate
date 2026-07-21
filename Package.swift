@@ -14,15 +14,15 @@ import Foundation
 // maintainer's paid/owner builds set SLATE_PRO=1 (see deploy.sh / build-dmg.sh); the
 // default build here is the FREE app. The app picks the free vs Pro implementation
 // behind `#if SLATE_PRO`.
-func openDep(_ localPath: String, _ url: String) -> Package.Dependency {
-    FileManager.default.fileExists(atPath: localPath) ? .package(path: localPath) : .package(url: url, branch: "main")
+func openDep(_ localPath: String, remote: Package.Dependency) -> Package.Dependency {
+    FileManager.default.fileExists(atPath: localPath) ? .package(path: localPath) : remote
 }
 
 let linkPro = ProcessInfo.processInfo.environment["SLATE_PRO"] == "1"
 
 var packageDependencies: [Package.Dependency] = [
-    openDep("../slate-engine", "https://github.com/Lange-Co-Consulting/slate-engine.git"),
-    openDep("../slate-ui", "https://github.com/Lange-Co-Consulting/slate-ui.git"),
+    openDep("../slate-engine", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-engine.git", exact: "0.1.1")),
+    openDep("../slate-ui", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-ui.git", exact: "0.1.0")),
     // Qwen3-TTS premium voice (MLX/Metal). Pinned by revision - the repo tags
     // nothing; a moving `main` must never silently change what we ship. App-only.
     .package(url: "https://github.com/AtomGradient/swift-qwen3-tts.git",

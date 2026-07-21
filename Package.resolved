@@ -1,5 +1,5 @@
 {
-  "originHash" : "088d21bfa089ad6ec7c7cbed3f43327166156cf8b62b85101307014b6f10813e",
+  "originHash" : "0a492e385ce3d9b152eda4f77d39a801bb04e551f08fef479062143ca4ae3188",
   "pins" : [
     {
       "identity" : "fluidaudio",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lange-Co-Consulting/slate-engine.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "bd49f9c035dca5aefb15553c925c2fb0093349d2"
+        "revision" : "bd49f9c035dca5aefb15553c925c2fb0093349d2",
+        "version" : "0.1.1"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lange-Co-Consulting/slate-ui.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "255b4d0f2366f6feb60d8235e7729e2acf8852db"
+        "revision" : "255b4d0f2366f6feb60d8235e7729e2acf8852db",
+        "version" : "0.1.0"
       }
     },
     {
