@@ -1,4 +1,4 @@
-# Slate — Compliance & Richtlinien
+# Slate · Compliance & Richtlinien
 
 Praktische Übersicht der rechtlichen Pflichten für **Website + App + zukünftigen Verkauf**.
 Anbieter/Verantwortlicher: **Lange und Co. Consulting GmbH**, Gertrud-Luckner-Straße 5,
@@ -14,12 +14,12 @@ USt-IdNr. DE460959877 · info@lange-co-consulting.de.
 
 ---
 
-## 1. Impressumspflicht — ✅
+## 1. Impressumspflicht · ✅
 - § 5 DDG (ehem. § 5 TMG) und § 18 MStV: vollständige Anbieterkennzeichnung.
 - Umgesetzt in `landing/imprint.html` mit echten Registerdaten. Im Footer jeder Seite verlinkt.
 - Pflicht: leicht erkennbar, unmittelbar erreichbar, ständig verfügbar. ✅ (Footer-Link „Impressum").
 
-## 2. Datenschutz (DSGVO) — ✅ Texte / 🟡 Organisatorisches
+## 2. Datenschutz (DSGVO) · ✅ Texte / 🟡 Organisatorisches
 - Art. 13 Informationspflichten: `landing/privacy.html` (Website Teil A + App Teil B). ✅
 - Zuständige Aufsichtsbehörde: **LDI NRW**, Düsseldorf (NRW). ✅ genannt.
 - 🟡 **Auftragsverarbeitung (Art. 28):** AV-Vertrag mit dem Hosting-Anbieter abschließen.
@@ -27,22 +27,22 @@ USt-IdNr. DE460959877 · info@lange-co-consulting.de.
   gehostet wird → Abschnitt A.2 anpassen und passenden AV-Vertrag/SCC sicherstellen.
 - 🟡 **Verzeichnis von Verarbeitungstätigkeiten (Art. 30):** intern führen (Website-Logs,
   Kontaktanfragen). Für ein kleines Unternehmen kurz, aber vorhanden.
-- ✅ Kein Datenschutzbeauftragter nötig (Art. 37 — keine Pflicht).
+- ✅ Kein Datenschutzbeauftragter nötig (Art. 37, keine Pflicht).
 - ✅ Betroffenenrechte (Art. 15–21) beschrieben; Anlaufstelle info@…
 
-## 3. Cookies / Tracking (TDDDG § 25) — ✅
+## 3. Cookies / Tracking (TDDDG § 25) · ✅
 - Website nutzt **keine** Cookies, kein Analytics, keine Third-Party-Fonts, keine Pixel →
   **kein Consent-Banner erforderlich.** (Belegt im Code: keine Netzwerkaufrufe, System-Fonts.)
 - 🟡 Falls später Analytics/Marketing-Tools ergänzt werden: TDDDG-Einwilligung (Consent-Banner)
   + Anpassung der DS-Erklärung nötig.
 
-## 4. Barrierefreiheit (BFSG, ab 28.06.2025) — ✅ Website / ⬜ Checkout
+## 4. Barrierefreiheit (BFSG, ab 28.06.2025) · ✅ Website / ⬜ Checkout
 - Das Barrierefreiheitsstärkungsgesetz erfasst u. a. B2C-Dienstleistungen im E-Commerce.
 - Website: auf WCAG 2.1 AA getunt (Kontraste, ARIA, Tastaturbedienung, reduced-motion). ✅
 - ⬜ Sobald ein **Kauf-/Checkout-Flow** existiert, muss auch dieser barrierefrei sein
   (EN 301 549 / WCAG). App-UI ebenfalls möglichst zugänglich halten.
 
-## 5. Verbraucherverkauf (erst bei Bezahl-Launch) — ⬜
+## 5. Verbraucherverkauf (erst bei Bezahl-Launch) · ⬜
 - **Widerrufsrecht** (§§ 355 ff. BGB): 14 Tage bei digitalen Inhalten; erlischt nur bei
   ausdrücklicher Zustimmung zum sofortigen Beginn **und** Kenntnisnahme des Erlöschens.
   → Widerrufsbelehrung + Muster-Widerrufsformular bereitstellen.
@@ -55,7 +55,7 @@ USt-IdNr. DE460959877 · info@lange-co-consulting.de.
   der Anbieter ggf. als „Merchant of Record" auf → USt-Handling ändert sich.
 - **Preisangabenverordnung**: Endpreise inkl. USt ausweisen.
 
-## 6. Urheber- & Lizenzrecht — ✅ / 🟡
+## 6. Urheber- & Lizenzrecht · ✅ / 🟡
 - ✅ Die tatsächlich ausgelieferten Code-/Binary-Lizenzen sind in
   `THIRD_PARTY_NOTICES.md` inventarisiert; vollständige Texte werden ins App-Bundle kopiert.
 - ✅ Slate liefert **keine Modellgewichte** mit. Das gilt auch für Parakeet, Supertonic und
@@ -69,19 +69,19 @@ USt-IdNr. DE460959877 · info@lange-co-consulting.de.
   bleibt möglich und ändert deren Anbieterbedingungen nicht.
 - 🟡 Die technische Lizenzinventur ersetzt keine anwaltliche Prüfung der Modell- und
   Produktbedingungen vor dem öffentlichen Bezahl-Launch.
-- 🟡 **Namensrecht „Slate":** vor Launch eine Marken-/Namensrecherche (DPMA/EUIPO) durchführen —
+- 🟡 **Namensrecht „Slate":** vor Launch eine Marken-/Namensrecherche (DPMA/EUIPO) durchführen.
   „Slate" ist ein häufiger Produktname.
 
-## 7. Distribution der App — 🟡
+## 7. Distribution der App · 🟡
 - Direktvertrieb: **Developer ID signiert + notarisiert + gestapelt** (bereits als Pflicht im
   `security.html`/Prozess vermerkt). Kein unsignierter Download.
 - Alternativ Mac App Store: dann App-Review-Guidelines + **App-Privacy-Labels** (Datennutzung
-  deklarieren — bei Slate weitgehend „No Data Collected").
+  deklarieren, bei Slate weitgehend „No Data Collected").
 
-## 8. KI-Transparenz (EU AI Act) — ⬜ beobachten
+## 8. KI-Transparenz (EU AI Act) · ⬜ beobachten
 - Slate ist ein lokales BYO-Modell-Werkzeug ohne eigene Hochrisiko-Funktion. Transparenz-
   pflichten sind gering, aber die Entwicklung des AI Act beobachten (v. a. bei generierten
-  Bildern/Sprache — ggf. Kennzeichnungshinweise).
+  Bildern/Sprache, ggf. Kennzeichnungshinweise).
 
 ---
 
