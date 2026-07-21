@@ -56,6 +56,16 @@ protocol ProFeatures {
     func generateImage(_ job: ImageJob, onStep: @escaping @Sendable (Int, Int) -> Void) async throws -> Data
     /// Free the resident diffusion model's RAM (no-op when free).
     func unloadImageEngine() async
+
+    /// Local tools / MCP (Pro, Phase 3 "move everything"): the whole service + Settings
+    /// UI live in slate-pro. The turn loop reads `localToolRegistrations`; the app boots
+    /// discovery via `rescanLocalTools`; Settings embeds `localToolsSettings(...)`. Free
+    /// returns no tools, a no-op rescan, and an upsell row — the orchestration is absent.
+    var localToolRegistrations: [RegisteredTool] { get }
+    func rescanLocalTools(gate: any ApprovalGate) async
+    func localToolsSettings(gate: any ApprovalGate,
+                            requirePro: @escaping () -> Bool,
+                            onViewAudit: @escaping () -> Void) -> AnyView
 }
 
 /// A self-contained image-generation request in public types only (no SlateDiffusion),
@@ -106,6 +116,38 @@ struct DefaultFreeProFeatures: ProFeatures {
         throw ProUnavailable.imageGenerationRequiresPro
     }
     func unloadImageEngine() async {}
+    var localToolRegistrations: [RegisteredTool] { [] }
+    func rescanLocalTools(gate: any ApprovalGate) async {}
+    func localToolsSettings(gate: any ApprovalGate,
+                            requirePro: @escaping () -> Bool,
+                            onViewAudit: @escaping () -> Void) -> AnyView {
+        AnyView(ProLocalToolsUpsell())
+    }
+}
+
+/// The free build's stand-in for the Local tools · MCP settings section: a single row
+/// that opens the upsell. The real service + UI ship only in slate-pro.
+private struct ProLocalToolsUpsell: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        Section("Local tools · MCP") {
+            Button {
+                model.proUpsell = .localTools
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: ProFeature.localTools.icon).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(ProFeature.localTools.title).font(.callout.weight(.medium))
+                        Text(ProFeature.localTools.blurb).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("Pro").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
 }
 
 #if SLATE_PRO
@@ -114,6 +156,8 @@ struct SlateProFeatures: ProFeatures {
     let license: LicenseService
     /// The private, resident diffusion driver. Only this build links SlateDiffusion.
     let imageEngine: ProImageEngine
+    /// The private local-tools/MCP service — its whole orchestration lives in slate-pro.
+    let localTools: LocalMCPService
     func allows(_ cap: SlateCapability) -> Bool { license.entitlement.allows(cap) }
     var isPro: Bool { license.isPro }
     func setNetworkAccessAllowed(_ allowed: Bool) { license.networkAccessAllowed = allowed }
@@ -132,6 +176,14 @@ struct SlateProFeatures: ProFeatures {
                                        initImagePath: job.initImagePath, strength: job.strength, onStep: onStep)
     }
     func unloadImageEngine() async { await imageEngine.unload() }
+    var localToolRegistrations: [RegisteredTool] { localTools.registeredTools }
+    func rescanLocalTools(gate: any ApprovalGate) async { await localTools.rescan(gate: gate) }
+    func localToolsSettings(gate: any ApprovalGate,
+                            requirePro: @escaping () -> Bool,
+                            onViewAudit: @escaping () -> Void) -> AnyView {
+        AnyView(ProLocalToolsSettings(service: localTools, gate: gate,
+                                      requirePro: requirePro, onViewAudit: onViewAudit))
+    }
 }
 #endif
 

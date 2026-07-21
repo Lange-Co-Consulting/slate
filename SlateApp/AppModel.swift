@@ -153,9 +153,9 @@ final class AppModel {
     let speech = SpeechService()
     /// Offline "chat with your files" (per-conversation RAG via NLEmbedding).
     let knowledge = KnowledgeService()
-    /// Pro local stdio tools. Child processes have network access denied and
-    /// every invocation is routed through the approval sheet.
-    let localTools = LocalMCPService()
+    // Pro local stdio tools (MCP) moved into slate-pro (Phase 3): the free build ships
+    // no MCP orchestration. Reached only through `pro.localToolRegistrations` /
+    // `pro.rescanLocalTools(gate:)` / `pro.localToolsSettings(...)`.
 
     /// Crash logs macOS recorded for Slate, reduced to anonymous reports.
     var crashReports: [CrashReport] = []
@@ -241,7 +241,8 @@ final class AppModel {
 
     init() {
         #if SLATE_PRO
-        self.pro = SlateProFeatures(license: license, imageEngine: ProImageEngine())
+        self.pro = SlateProFeatures(license: license, imageEngine: ProImageEngine(),
+                                    localTools: LocalMCPService())
         #else
         self.pro = DefaultFreeProFeatures()
         #endif
@@ -994,7 +995,7 @@ final class AppModel {
         rescanModels()
         rescanSkills()
         if pro.allows(.localTools) {
-            Task { await localTools.rescan(gate: coordinator) }
+            Task { await pro.rescanLocalTools(gate: coordinator) }
         }
         refreshImageModels()
         updater.checkOnLaunch()   // silent unless a newer build is on the feed
@@ -2165,8 +2166,7 @@ final class AppModel {
                     let registry = SlateAgentFactory.fullRegistry(
                         scope: scope, gate: gate, mode: { holder.mode },
                         skipPermissions: { holder.skipPermissions },
-                        extraTools: (self.pro.allows(.localTools)
-                            ? self.localTools.registeredTools : []) + projectMemoryTool,
+                        extraTools: self.pro.localToolRegistrations + projectMemoryTool,
                         engine: engine)
                     // Auto-checkpoint the workspace before the agent may edit it (revertable).
                     let cpLabel = String((history.last(where: { $0.role == .user })?.content ?? "turn").prefix(50))
