@@ -48,6 +48,45 @@ protocol ProFeatures {
     /// placeholder; official returns the real view. When a feature's view later moves
     /// physically into SlatePro, only this factory changes, not the call site.
     func imageSurface(_ convo: Conversation) -> AnyView
+
+    /// Image generation is the one Pro surface whose *compute* is private (Phase 3,
+    /// pragmatic): only the official build links SlateDiffusion, via slate-pro's
+    /// `ProImageEngine`. The free build throws — a recompiled public app can render the
+    /// image UI but cannot produce a pixel (a dead button). `onStep` reports (step, total).
+    func generateImage(_ job: ImageJob, onStep: @escaping @Sendable (Int, Int) -> Void) async throws -> Data
+    /// Free the resident diffusion model's RAM (no-op when free).
+    func unloadImageEngine() async
+}
+
+/// A self-contained image-generation request in public types only (no SlateDiffusion),
+/// so the free build's `ProFeatures` seam carries no diffusion dependency. The official
+/// build's `SlateProFeatures` unpacks it onto the private `ProImageEngine`.
+struct ImageJob: Sendable {
+    let modelID: String
+    let modelName: String
+    let arch: String            // "flux2" | "qwenImage"
+    let diffusionPath: URL
+    let encoderPath: URL
+    let vaePath: URL
+    let requiresReferenceImage: Bool
+    let prompt: String
+    let width: Int
+    let height: Int
+    let seed: Int64
+    let initImagePath: String?
+    let strength: Float
+}
+
+/// Thrown by the free seam when a Pro-only compute path is invoked (e.g. a recompiled
+/// public build that flipped a gate). The feature UI may render, but the private engine
+/// is absent — so the action fails cleanly with a clear reason instead of doing nothing.
+enum ProUnavailable: LocalizedError {
+    case imageGenerationRequiresPro
+    var errorDescription: String? {
+        switch self {
+        case .imageGenerationRequiresPro: return "Image generation is a Slate Pro feature."
+        }
+    }
 }
 
 /// Free build: only free-tier capabilities are permitted, and every licensing
@@ -63,12 +102,18 @@ struct DefaultFreeProFeatures: ProFeatures {
     var roundtableModelCap: Int { 2 }
     var roundtableSynthesisAllowed: Bool { false }
     func imageSurface(_ convo: Conversation) -> AnyView { AnyView(ProFeaturePlaceholder(feature: .image)) }
+    func generateImage(_ job: ImageJob, onStep: @escaping @Sendable (Int, Int) -> Void) async throws -> Data {
+        throw ProUnavailable.imageGenerationRequiresPro
+    }
+    func unloadImageEngine() async {}
 }
 
 #if SLATE_PRO
 /// Official/owner build: the seam is backed by SlatePro's private `LicenseService`.
 struct SlateProFeatures: ProFeatures {
     let license: LicenseService
+    /// The private, resident diffusion driver. Only this build links SlateDiffusion.
+    let imageEngine: ProImageEngine
     func allows(_ cap: SlateCapability) -> Bool { license.entitlement.allows(cap) }
     var isPro: Bool { license.isPro }
     func setNetworkAccessAllowed(_ allowed: Bool) { license.networkAccessAllowed = allowed }
@@ -79,6 +124,14 @@ struct SlateProFeatures: ProFeatures {
     var roundtableModelCap: Int { license.isPro ? .max : 2 }
     var roundtableSynthesisAllowed: Bool { license.isPro }
     func imageSurface(_ convo: Conversation) -> AnyView { AnyView(ImageSectionView(convo: convo)) }
+    func generateImage(_ job: ImageJob, onStep: @escaping @Sendable (Int, Int) -> Void) async throws -> Data {
+        try await imageEngine.generate(modelID: job.modelID, modelName: job.modelName, arch: job.arch,
+                                       diffusionPath: job.diffusionPath, encoderPath: job.encoderPath, vaePath: job.vaePath,
+                                       requiresReferenceImage: job.requiresReferenceImage,
+                                       prompt: job.prompt, width: job.width, height: job.height, seed: job.seed,
+                                       initImagePath: job.initImagePath, strength: job.strength, onStep: onStep)
+    }
+    func unloadImageEngine() async { await imageEngine.unload() }
 }
 #endif
 

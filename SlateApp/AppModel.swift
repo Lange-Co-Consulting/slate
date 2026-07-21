@@ -5,7 +5,6 @@ import Observation
 import SlateCore
 import SlateUI
 import SlateLlama
-import SlateDiffusion
 import SlateFlowCore
 #if SLATE_PRO
 import SlatePro
@@ -242,7 +241,7 @@ final class AppModel {
 
     init() {
         #if SLATE_PRO
-        self.pro = SlateProFeatures(license: license)
+        self.pro = SlateProFeatures(license: license, imageEngine: ProImageEngine())
         #else
         self.pro = DefaultFreeProFeatures()
         #endif
@@ -272,7 +271,9 @@ final class AppModel {
     var isFullscreen = false
 
     // MARK: Image generation (diffusion)
-    let diffusion = DiffusionEngine()
+    // The diffusion engine itself lives in slate-pro's `ProImageEngine` (Phase 3):
+    // generation runs through `pro.generateImage(_:onStep:)` and RAM is freed via
+    // `pro.unloadImageEngine()`. The free build links no SlateDiffusion at all.
     var installedImageBundles: [ImageBundle] = []
     var selectedImageModelID: String?
     var imageGenerating = false
@@ -1125,7 +1126,7 @@ final class AppModel {
         activeModelURL = nil
         loadingModel = false
         modelError = nil
-        Task { await diffusion.unload() }   // free the image model's RAM when switching to Cloud
+        Task { await pro.unloadImageEngine() }   // free the image model's RAM when switching to Cloud
     }
 
     /// Load a saved OpenAI-compatible cloud model as the active engine.
@@ -1144,7 +1145,7 @@ final class AppModel {
         activeModelURL = nil
         loadingModel = false
         modelError = nil
-        Task { await diffusion.unload() }
+        Task { await pro.unloadImageEngine() }
     }
 
     /// Add or update a cloud provider; the key (if given) goes to the Keychain.
@@ -1201,7 +1202,7 @@ final class AppModel {
         activeModelURL = nil
         loadingModel = false
         modelError = nil
-        Task { await diffusion.unload() }
+        Task { await pro.unloadImageEngine() }
     }
 
     func removeOpenCodeModel(_ modelID: String) {
@@ -1340,7 +1341,7 @@ final class AppModel {
         engine = nil
         usingCloud = false
         activeCloudProviderID = nil
-        Task { await diffusion.unload() }   // free the image model's RAM before an LLM loads
+        Task { await pro.unloadImageEngine() }   // free the image model's RAM before an LLM loads
         loadEpoch += 1
         let epoch = loadEpoch                 // newest load wins; older completions are dropped
         let path = url.path
@@ -1923,12 +1924,12 @@ final class AppModel {
 
     private func runImage(_ req: PendingImage) {
         guard let bundle = installedImageBundles.first(where: { $0.id == selectedImageModelID }) ?? installedImageBundles.first,
-              let dm = bundle.installedModel() else {
+              let files = bundle.installedFiles() else {
             imageError = "No image model installed - download one in the Model Manager."
             return
         }
-        guard !dm.requiresReferenceImage || req.initImagePath != nil else {
-            imageError = "\(dm.name) needs a reference image. Attach or drop an image, then describe the edit."
+        guard !bundle.requiresReferenceImage || req.initImagePath != nil else {
+            imageError = "\(bundle.name) needs a reference image. Attach or drop an image, then describe the edit."
             return
         }
         update(req.convoID) { c in
@@ -1937,16 +1938,19 @@ final class AppModel {
             if !c.manualTitle && c.isUntitled { c.title = String(req.prompt.prefix(48)) }
         }
         imageGenerating = true; imageGeneratingConvoID = req.convoID
-        imageStep = 0; imageTotalSteps = dm.defaultSteps; imageError = nil
-        let ir = ImageRequest(prompt: req.prompt, width: req.width, height: req.height, seed: req.seed,
-                              initImagePath: req.initImagePath, strength: req.strength)
+        imageStep = 0; imageTotalSteps = bundle.defaultSteps; imageError = nil
+        // All the compute — model load + diffusion — happens inside the private
+        // ProImageEngine (slate-pro). The free build's seam throws here, so it can
+        // never reach a pixel: image generation is unbypassable by recompiling.
+        let job = ImageJob(modelID: bundle.id, modelName: bundle.name, arch: bundle.arch,
+                           diffusionPath: files.diffusion, encoderPath: files.encoder, vaePath: files.vae,
+                           requiresReferenceImage: bundle.requiresReferenceImage,
+                           prompt: req.prompt, width: req.width, height: req.height, seed: req.seed,
+                           initImagePath: req.initImagePath, strength: req.strength)
         let convoID = req.convoID
         Task { @MainActor in
             do {
-                // Load once; keep it resident across generations (a cold load reads
-                // ~17GB from disk). Only (re)load when the model actually changed.
-                if await diffusion.loaded?.id != dm.id { try await diffusion.load(dm) }
-                let png = try await diffusion.generate(ir) { [weak self] step, total in
+                let png = try await pro.generateImage(job) { [weak self] step, total in
                     Task { @MainActor in self?.imageStep = step; self?.imageTotalSteps = total }
                 }
                 let path = Self.saveGeneratedImage(png)

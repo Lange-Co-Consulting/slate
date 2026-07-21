@@ -32,7 +32,9 @@ var packageDependencies: [Package.Dependency] = [
 var appDependencies: [Target.Dependency] = [
     .product(name: "SlateCore", package: "slate-engine"),
     .product(name: "SlateLlama", package: "slate-engine"),
-    .product(name: "SlateDiffusion", package: "slate-engine"),
+    // NOTE: SlateDiffusion is intentionally NOT linked by the app. Image generation
+    // (the only Pro surface whose compute is private) lives in slate-pro's
+    // ProImageEngine; the free build carries no diffusion code and cannot generate.
     .product(name: "SlateSTT", package: "slate-engine"),
     .product(name: "SlateFlowCore", package: "slate-engine"),
     .product(name: "SlateFlowCleanup", package: "slate-engine"),

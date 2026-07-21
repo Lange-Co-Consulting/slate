@@ -1,16 +1,22 @@
 import Foundation
 import SlateCore
-import SlateDiffusion
 
 /// A downloadable image model = a bundle of files (diffusion transformer + text
 /// encoder + VAE) installed together under ~/Models/image/<id>/.
+///
+/// This catalog is deliberately free of SlateDiffusion: it is pure download metadata
+/// (names, URLs, sizes, licenses) plus on-disk existence/format checks. The actual
+/// diffusion model is reconstructed from these file paths inside slate-pro's private
+/// `ProImageEngine`, so the free public build carries no image-generation code.
 struct ImageBundle: Identifiable {
     enum Role { case diffusion, encoder, vae }
     struct File { let role: Role; let name: String; let url: URL; let approxBytes: Int64 }
 
     let id: String
     let name: String
-    let arch: DiffusionModel.Arch
+    /// Diffusion architecture as a plain tag ("flux2" | "qwenImage"); slate-pro maps
+    /// it back to `DiffusionModel.Arch`. Kept a String so this file needs no engine import.
+    let arch: String
     let note: String
     let licenseName: String
     let licenseNote: String
@@ -34,7 +40,7 @@ struct ImageBundle: Identifiable {
         // Qwen3 text encoder from unsloth, and the ungated FLUX.2 small-decoder VAE.
         // All three are Apache-2.0. flux2 arch defaults: 4 steps, cfg 1.0.
         ImageBundle(
-            id: "flux2-klein-4b", name: "FLUX.2 klein · Fast", arch: .flux2,
+            id: "flux2-klein-4b", name: "FLUX.2 klein · Fast", arch: "flux2",
             note: "Text to image · fast 4-step · Apache-2.0 · ~5 GB",
             licenseName: "Apache-2.0",
             licenseNote: "Apache-2.0 model bundle from Black Forest Labs. Slate downloads the three files only after you review the provider terms.",
@@ -50,7 +56,7 @@ struct ImageBundle: Identifiable {
                       url: hf("black-forest-labs/FLUX.2-small-decoder", "full_encoder_small_decoder.safetensors"), approxBytes: 249_519_092),
             ]),
         ImageBundle(
-            id: "flux2-klein-9b", name: "FLUX.2 klein · Detailed", arch: .flux2,
+            id: "flux2-klein-9b", name: "FLUX.2 klein · Detailed", arch: "flux2",
             note: "Text to image · higher fidelity · Apache-2.0 · ~11 GB",
             licenseName: "Apache-2.0",
             licenseNote: "Apache-2.0 model bundle from Black Forest Labs. Slate downloads the three files only after you review the provider terms.",
@@ -66,7 +72,7 @@ struct ImageBundle: Identifiable {
                       url: hf("black-forest-labs/FLUX.2-small-decoder", "full_encoder_small_decoder.safetensors"), approxBytes: 249_519_092),
             ]),
         ImageBundle(
-            id: "qwen-image-compact", name: "Qwen Image · Compact", arch: .qwenImage,
+            id: "qwen-image-compact", name: "Qwen Image · Compact", arch: "qwenImage",
             note: "Text to image · smaller download · Apache-2.0 · ~12 GB",
             licenseName: "Apache-2.0",
             licenseNote: "Apache-2.0 model bundle. Slate downloads the three files only after you review the provider terms.",
@@ -82,7 +88,7 @@ struct ImageBundle: Identifiable {
                       url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
             ]),
         ImageBundle(
-            id: "qwen-image", name: "Qwen Image · Detailed", arch: .qwenImage,
+            id: "qwen-image", name: "Qwen Image · Detailed", arch: "qwenImage",
             note: "Text to image · higher fidelity · Apache-2.0 · ~18 GB",
             licenseName: "Apache-2.0",
             licenseNote: "Apache-2.0 model bundle. Slate downloads the three files only after you review the provider terms.",
@@ -98,7 +104,7 @@ struct ImageBundle: Identifiable {
                       url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
             ]),
         ImageBundle(
-            id: "qwen-image-edit-compact", name: "Qwen Image Edit · Compact", arch: .qwenImage,
+            id: "qwen-image-edit-compact", name: "Qwen Image Edit · Compact", arch: "qwenImage",
             note: "Transform a reference image · smaller download · Apache-2.0 · ~12 GB",
             licenseName: "Apache-2.0",
             licenseNote: "Apache-2.0 model bundle. This edit model requires a reference image; Slate downloads the three files only after you review the provider terms.",
@@ -114,7 +120,7 @@ struct ImageBundle: Identifiable {
                       url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
             ]),
         ImageBundle(
-            id: "qwen-image-edit", name: "Qwen Image Edit · Detailed", arch: .qwenImage,
+            id: "qwen-image-edit", name: "Qwen Image Edit · Detailed", arch: "qwenImage",
             note: "Transform a reference image · higher fidelity · Apache-2.0 · ~18 GB",
             licenseName: "Apache-2.0",
             licenseNote: "Apache-2.0 model bundle. This edit model requires a reference image; Slate downloads the three files only after you review the provider terms.",
@@ -141,17 +147,23 @@ struct ImageBundle: Identifiable {
         Self.storeRoot.appendingPathComponent(id, isDirectory: true)
     }
 
-    /// The installed on-disk model, or nil if any file is missing.
-    func installedModel() -> DiffusionModel? {
+    /// The three installed files (transformer, text encoder, VAE) or nil if any is
+    /// missing or fails its format-magic check. No SlateDiffusion is needed here — the
+    /// private `ProImageEngine` rebuilds the diffusion model from these paths.
+    func installedFiles() -> (diffusion: URL, encoder: URL, vae: URL)? {
         func path(_ r: Role) -> URL? {
             files.first { $0.role == r }.map { installDir.appendingPathComponent($0.name) }
         }
         guard let d = path(.diffusion), let e = path(.encoder), let v = path(.vae) else { return nil }
-        let m = DiffusionModel(id: id, name: name, arch: arch, diffusionPath: d, llmPath: e, vaePath: v,
-                               requiresReferenceImage: requiresReferenceImage)
-        guard m.isComplete, m.files.allSatisfy(Self.isSafeModelFile) else { return nil }
-        return m
+        let all = [d, e, v]
+        guard all.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }),
+              all.allSatisfy(Self.isSafeModelFile) else { return nil }
+        return (d, e, v)
     }
+
+    /// Initial step estimate for the progress bubble before the engine reports totals
+    /// (flux2 is a fast 4-step distillation; Qwen defaults higher).
+    var defaultSteps: Int { arch == "flux2" ? 4 : 20 }
 
     private static func isSafeModelFile(_ url: URL) -> Bool {
         switch url.pathExtension.lowercased() {
@@ -161,5 +173,5 @@ struct ImageBundle: Identifiable {
         }
     }
 
-    var isInstalled: Bool { installedModel() != nil }
+    var isInstalled: Bool { installedFiles() != nil }
 }
