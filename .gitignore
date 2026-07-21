@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+# Xcode / Swift
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+.build/
+# Large model assets — never commit GGUFs
+*.gguf
+*.safetensors
+Models/
+# Prebuilt llama.cpp binary framework (rebuild via Plan 1 Task 0, never commit)
+Frameworks/
+# Packaging output
+Slate.app/
+Slate.dmg
+Slate-Owner.dmg
+# Offline licensing secrets and issued customer files
+*.slatekey
+*.slatelicense
+# Tooling artifacts (skills, not part of the project)
+.skill-archive/

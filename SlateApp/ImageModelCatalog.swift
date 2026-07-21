@@ -1,0 +1,165 @@
+import Foundation
+import SlateCore
+import SlateDiffusion
+
+/// A downloadable image model = a bundle of files (diffusion transformer + text
+/// encoder + VAE) installed together under ~/Models/image/<id>/.
+struct ImageBundle: Identifiable {
+    enum Role { case diffusion, encoder, vae }
+    struct File { let role: Role; let name: String; let url: URL; let approxBytes: Int64 }
+
+    let id: String
+    let name: String
+    let arch: DiffusionModel.Arch
+    let note: String
+    let licenseName: String
+    let licenseNote: String
+    let modelCardURL: URL
+    let licenseURL: URL
+    /// Qwen Image Edit is an img2img model. It needs an image attached to the
+    /// composer; plain text-to-image requests are rejected before the engine
+    /// is asked to allocate the model.
+    let requiresReferenceImage: Bool
+    let files: [File]
+
+    var totalBytes: Int64 { files.reduce(0) { $0 + $1.approxBytes } }
+
+    private static func hf(_ repo: String, _ path: String) -> URL {
+        URL(string: "https://huggingface.co/\(repo)/resolve/main/\(path)?download=true")!
+    }
+
+    static let all: [ImageBundle] = [
+        // FLUX.2 klein (Black Forest Labs) - a different family from Qwen, distilled
+        // for fast 4-step generation. Diffusion GGUF from leejet (the sd.cpp author),
+        // Qwen3 text encoder from unsloth, and the ungated FLUX.2 small-decoder VAE.
+        // All three are Apache-2.0. flux2 arch defaults: 4 steps, cfg 1.0.
+        ImageBundle(
+            id: "flux2-klein-4b", name: "FLUX.2 klein · Fast", arch: .flux2,
+            note: "Text to image · fast 4-step · Apache-2.0 · ~5 GB",
+            licenseName: "Apache-2.0",
+            licenseNote: "Apache-2.0 model bundle from Black Forest Labs. Slate downloads the three files only after you review the provider terms.",
+            modelCardURL: URL(string: "https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF")!,
+            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
+            requiresReferenceImage: false,
+            files: [
+                .init(role: .diffusion, name: "flux-2-klein-4b-Q4_0.gguf",
+                      url: hf("leejet/FLUX.2-klein-4B-GGUF", "flux-2-klein-4b-Q4_0.gguf"), approxBytes: 2_460_378_560),
+                .init(role: .encoder, name: "Qwen3-4B-Q4_K_M.gguf",
+                      url: hf("unsloth/Qwen3-4B-GGUF", "Qwen3-4B-Q4_K_M.gguf"), approxBytes: 2_497_281_312),
+                .init(role: .vae, name: "flux2-full-encoder-small-decoder.safetensors",
+                      url: hf("black-forest-labs/FLUX.2-small-decoder", "full_encoder_small_decoder.safetensors"), approxBytes: 249_519_092),
+            ]),
+        ImageBundle(
+            id: "flux2-klein-9b", name: "FLUX.2 klein · Detailed", arch: .flux2,
+            note: "Text to image · higher fidelity · Apache-2.0 · ~11 GB",
+            licenseName: "Apache-2.0",
+            licenseNote: "Apache-2.0 model bundle from Black Forest Labs. Slate downloads the three files only after you review the provider terms.",
+            modelCardURL: URL(string: "https://huggingface.co/leejet/FLUX.2-klein-9B-GGUF")!,
+            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
+            requiresReferenceImage: false,
+            files: [
+                .init(role: .diffusion, name: "flux-2-klein-9b-Q4_0.gguf",
+                      url: hf("leejet/FLUX.2-klein-9B-GGUF", "flux-2-klein-9b-Q4_0.gguf"), approxBytes: 5_616_208_032),
+                .init(role: .encoder, name: "Qwen3-8B-Q4_K_M.gguf",
+                      url: hf("unsloth/Qwen3-8B-GGUF", "Qwen3-8B-Q4_K_M.gguf"), approxBytes: 5_027_784_512),
+                .init(role: .vae, name: "flux2-full-encoder-small-decoder.safetensors",
+                      url: hf("black-forest-labs/FLUX.2-small-decoder", "full_encoder_small_decoder.safetensors"), approxBytes: 249_519_092),
+            ]),
+        ImageBundle(
+            id: "qwen-image-compact", name: "Qwen Image · Compact", arch: .qwenImage,
+            note: "Text to image · smaller download · Apache-2.0 · ~12 GB",
+            licenseName: "Apache-2.0",
+            licenseNote: "Apache-2.0 model bundle. Slate downloads the three files only after you review the provider terms.",
+            modelCardURL: URL(string: "https://huggingface.co/QuantStack/Qwen-Image-GGUF")!,
+            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
+            requiresReferenceImage: false,
+            files: [
+                .init(role: .diffusion, name: "Qwen_Image-Q2_K.gguf",
+                      url: hf("QuantStack/Qwen-Image-GGUF", "Qwen_Image-Q2_K.gguf"), approxBytes: 7_060_000_000),
+                .init(role: .encoder, name: "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+                      url: hf("mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf"), approxBytes: 4_700_000_000),
+                .init(role: .vae, name: "qwen_image_vae.safetensors",
+                      url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
+            ]),
+        ImageBundle(
+            id: "qwen-image", name: "Qwen Image · Detailed", arch: .qwenImage,
+            note: "Text to image · higher fidelity · Apache-2.0 · ~18 GB",
+            licenseName: "Apache-2.0",
+            licenseNote: "Apache-2.0 model bundle. Slate downloads the three files only after you review the provider terms.",
+            modelCardURL: URL(string: "https://huggingface.co/QuantStack/Qwen-Image-GGUF")!,
+            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
+            requiresReferenceImage: false,
+            files: [
+                .init(role: .diffusion, name: "Qwen_Image-Q4_K_M.gguf",
+                      url: hf("QuantStack/Qwen-Image-GGUF", "Qwen_Image-Q4_K_M.gguf"), approxBytes: 13_100_000_000),
+                .init(role: .encoder, name: "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+                      url: hf("mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf"), approxBytes: 4_700_000_000),
+                .init(role: .vae, name: "qwen_image_vae.safetensors",
+                      url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
+            ]),
+        ImageBundle(
+            id: "qwen-image-edit-compact", name: "Qwen Image Edit · Compact", arch: .qwenImage,
+            note: "Transform a reference image · smaller download · Apache-2.0 · ~12 GB",
+            licenseName: "Apache-2.0",
+            licenseNote: "Apache-2.0 model bundle. This edit model requires a reference image; Slate downloads the three files only after you review the provider terms.",
+            modelCardURL: URL(string: "https://huggingface.co/QuantStack/Qwen-Image-Edit-GGUF")!,
+            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
+            requiresReferenceImage: true,
+            files: [
+                .init(role: .diffusion, name: "Qwen_Image_Edit-Q2_K.gguf",
+                      url: hf("QuantStack/Qwen-Image-Edit-GGUF", "Qwen_Image_Edit-Q2_K.gguf"), approxBytes: 7_060_000_000),
+                .init(role: .encoder, name: "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+                      url: hf("mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf"), approxBytes: 4_700_000_000),
+                .init(role: .vae, name: "qwen_image_vae.safetensors",
+                      url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
+            ]),
+        ImageBundle(
+            id: "qwen-image-edit", name: "Qwen Image Edit · Detailed", arch: .qwenImage,
+            note: "Transform a reference image · higher fidelity · Apache-2.0 · ~18 GB",
+            licenseName: "Apache-2.0",
+            licenseNote: "Apache-2.0 model bundle. This edit model requires a reference image; Slate downloads the three files only after you review the provider terms.",
+            modelCardURL: URL(string: "https://huggingface.co/QuantStack/Qwen-Image-Edit-GGUF")!,
+            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
+            requiresReferenceImage: true,
+            files: [
+                .init(role: .diffusion, name: "Qwen_Image_Edit-Q4_K_M.gguf",
+                      url: hf("QuantStack/Qwen-Image-Edit-GGUF", "Qwen_Image_Edit-Q4_K_M.gguf"), approxBytes: 13_100_000_000),
+                .init(role: .encoder, name: "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+                      url: hf("mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf"), approxBytes: 4_700_000_000),
+                .init(role: .vae, name: "qwen_image_vae.safetensors",
+                      url: hf("Comfy-Org/Qwen-Image_ComfyUI", "split_files/vae/qwen_image_vae.safetensors"), approxBytes: 250_000_000),
+            ]),
+    ]
+
+    /// Root of the image-model store. Everything below is diffusion bundles
+    /// (transformer + encoder + VAE) - the LLM catalog must never scan it.
+    static var storeRoot: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Models/image", isDirectory: true)
+    }
+
+    var installDir: URL {
+        Self.storeRoot.appendingPathComponent(id, isDirectory: true)
+    }
+
+    /// The installed on-disk model, or nil if any file is missing.
+    func installedModel() -> DiffusionModel? {
+        func path(_ r: Role) -> URL? {
+            files.first { $0.role == r }.map { installDir.appendingPathComponent($0.name) }
+        }
+        guard let d = path(.diffusion), let e = path(.encoder), let v = path(.vae) else { return nil }
+        let m = DiffusionModel(id: id, name: name, arch: arch, diffusionPath: d, llmPath: e, vaePath: v,
+                               requiresReferenceImage: requiresReferenceImage)
+        guard m.isComplete, m.files.allSatisfy(Self.isSafeModelFile) else { return nil }
+        return m
+    }
+
+    private static func isSafeModelFile(_ url: URL) -> Bool {
+        switch url.pathExtension.lowercased() {
+        case "gguf": return DownloadCatalog.hasGGUFMagic(url)
+        case "safetensors": return DownloadCatalog.hasSafeTensorsHeader(url)
+        default: return false
+        }
+    }
+
+    var isInstalled: Bool { installedModel() != nil }
+}

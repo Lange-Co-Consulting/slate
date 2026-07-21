@@ -1,0 +1,16 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Back" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Zurück" } } } },
+    "Choose a model…" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Modell auswählen…" } } } },
+    "Clear settings search" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Einstellungssuche leeren" } } } },
+    "Cloud mode stays off until you explicitly enable it in Settings." : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Der Cloud-Modus bleibt aus, bis du ihn ausdrücklich in den Einstellungen aktivierst." } } } },
+    "Get started" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Loslegen" } } } },
+    "Import settings…" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Einstellungen importieren…" } } } },
+    "Quick Look" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Übersicht" } } } },
+    "Quick tour" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Kurztour" } } } },
+    "Search settings" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Einstellungen durchsuchen" } } } },
+    "Welcome to Slate" : { "localizations" : { "de" : { "stringUnit" : { "state" : "translated", "value" : "Willkommen bei Slate" } } } }
+  },
+  "version" : "1.0"
+}

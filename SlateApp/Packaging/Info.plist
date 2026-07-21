@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>Slate</string>
+  <key>CFBundleDisplayName</key>
+  <string>Slate</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.langeundco.slate</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Slate Offline Automation</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>slate</string>
+			</array>
+		</dict>
+	</array>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1</string>
+  <key>CFBundleExecutable</key>
+  <string>Slate</string>
+  <key>CFBundleIconFile</key>
+  <string>Slate</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleHelpBookFolder</key>
+  <string>Slate.help</string>
+  <key>CFBundleHelpBookName</key>
+  <string>com.langeundco.slate.help</string>
+  <key>SlateOfflineLicensePublicKey</key>
+  <string>x2vjzwJLGqpaJzRE7Y+aJIqEWUbd9OFKwseZYDiqxK4=</string>
+  <key>SlateUpdatePublicKey</key>
+  <string>4FDDsQEdc6LJR9perdyvGuyjtkcxxRJ90oRGcfO6sys=</string>
+  <key>SlateUpdateFeedURL</key>
+  <string>https://slate-app.org/updates/beta.json</string>
+  <key>SlateBuildChannel</key>
+  <string>beta</string>
+  <key>SlateOwnerBuild</key>
+  <false/>
+  <key>LSMinimumSystemVersion</key>
+  <string>26.0</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.developer-tools</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>© 2026 Lange &amp; Co.</string>
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <!-- Allow the code-mode live preview to load a local dev server over http.
+       Loopback only (Apple's sanctioned key); ATS stays strict for all other hosts. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
+  <key>NSServices</key>
+  <array>
+    <dict>
+      <key>NSMenuItem</key>
+      <dict><key>default</key><string>Send Selection to Slate</string></dict>
+      <key>NSMessage</key>
+      <string>sendSelection</string>
+      <key>NSPortName</key>
+      <string>Slate</string>
+      <key>NSSendTypes</key>
+      <array>
+        <string>public.utf8-plain-text</string>
+        <string>public.file-url</string>
+      </array>
+    </dict>
+  </array>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Slate transcribes voice conversations and dictation entirely on this Mac.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Slate can insert dictated text into other apps when direct accessibility insertion is unavailable.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Slate transcribes speech locally on this Mac; it does not use Apple's cloud speech recognition service.</string>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>Slate reads and edits project folders that you explicitly select.</string>
+  <key>NSDownloadsFolderUsageDescription</key>
+  <string>Slate accesses models and project files in Downloads only when you choose them.</string>
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>Slate accesses projects on the Desktop only when you choose them.</string>
+</dict>
+</plist>
