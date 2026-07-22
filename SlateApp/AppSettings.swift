@@ -193,6 +193,11 @@ final class AppSettings {
     var updateFeedURL: String? {
         didSet { UserDefaults.standard.set(updateFeedURL, forKey: "slate.updateFeedURL") }
     }
+    /// A version the user chose to skip in the launch update prompt. The prompt stays
+    /// hidden for exactly this version; a newer one shows again.
+    var skippedUpdateVersion: String? {
+        didSet { UserDefaults.standard.set(skippedUpdateVersion, forKey: "slate.skippedUpdateVersion") }
+    }
     var defaultTemperature: Double {
         didSet { UserDefaults.standard.set(defaultTemperature, forKey: "slate.defaultTemp") }
     }
@@ -348,6 +353,7 @@ final class AppSettings {
         quickEnabled = (UserDefaults.standard.object(forKey: "slate.quickEnabled") as? Bool) ?? true
         diarizationModelPath = UserDefaults.standard.string(forKey: "slate.diarizationModelPath")
         updateFeedURL = UserDefaults.standard.string(forKey: "slate.updateFeedURL")
+        skippedUpdateVersion = UserDefaults.standard.string(forKey: "slate.skippedUpdateVersion")
         defaultTemperature = (UserDefaults.standard.object(forKey: "slate.defaultTemp") as? Double) ?? 0.7
         maxTokens = (UserDefaults.standard.object(forKey: "slate.maxTokens") as? Int) ?? 2048
         agentMaxSteps = (UserDefaults.standard.object(forKey: "slate.agentMaxSteps") as? Int) ?? 40

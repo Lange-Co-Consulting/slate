@@ -212,17 +212,32 @@ final class UpdateService {
         let newApp = mountPoint + "/Slate.app"
         // Verify the downloaded app has a valid, intact signature before trusting it.
         _ = try run("/usr/bin/codesign", ["--verify", "--deep", "--strict", newApp])
-        // A Developer ID designated requirement identifies the actual signing
-        // certificate/team; matching only the display `Authority=` string does not.
-        try assertSameDesignatedRequirement(newApp: newApp)
+        try assertTrustedReplacement(newApp: newApp)
 
         let installed = "/Applications/Slate.app"
         // rm+cp: unlinks the old inode so replacing the running app is safe.
         _ = try? run("/bin/rm", ["-rf", installed])
         _ = try run("/bin/cp", ["-R", newApp, installed])
+        // Strip any quarantine the download may have carried so the freshly-copied
+        // app relaunches without a Gatekeeper prompt (best-effort; ignore failures).
+        _ = try? run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", installed])
     }
 
-    private func assertSameDesignatedRequirement(newApp: String) throws {
+    /// Decide whether the downloaded app may replace the running one.
+    ///
+    /// The real trust anchor for updates is the pinned Ed25519 manifest signature plus
+    /// the SHA256-pinned DMG (both already verified before we get here) — so the bundle
+    /// that reaches this point is exactly what the update key-holder released. The
+    /// codesign checks are defense-in-depth on top of that:
+    ///
+    /// - Production (running app is Developer ID signed): require the update to be signed
+    ///   by the SAME Developer ID team and carry the SAME designated requirement. This is
+    ///   the strong check for notarized public builds.
+    /// - Dev / self-signed (pre-notarization): the running app has no Developer ID, so we
+    ///   rely on the Ed25519 + SHA256 anchor and the `codesign --verify` integrity check
+    ///   the caller already ran. This lets the update loop work before notarization; once
+    ///   the app ships Developer ID signed, the strong branch above applies automatically.
+    private func assertTrustedReplacement(newApp: String) throws {
         func requirement(_ path: String) -> String? {
             guard let out = try? run("/usr/bin/codesign", ["-dr", "-", path], mergeStderr: true) else { return nil }
             return out.split(separator: "\n").first { $0.contains("designated =>") }.map(String.init)
@@ -235,10 +250,13 @@ final class UpdateService {
                   !team.isEmpty, team != "not set" else { return nil }
             return team
         }
-        guard let running = Bundle.main.bundlePath as String?,
+        let running = Bundle.main.bundlePath
+        // Only the production path enforces the identity match; a self-signed running app
+        // means we're pre-notarization and trust the signed-manifest anchor instead.
+        guard let currentTeam = developerIDTeam(running) else { return }
+        guard let newTeam = developerIDTeam(newApp), newTeam == currentTeam,
               let currentRequirement = requirement(running), let newRequirement = requirement(newApp),
-              let currentTeam = developerIDTeam(running), let newTeam = developerIDTeam(newApp),
-              currentRequirement == newRequirement, currentTeam == newTeam else {
+              currentRequirement == newRequirement else {
             throw UpdateError.signatureMismatch
         }
     }

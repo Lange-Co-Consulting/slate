@@ -167,7 +167,7 @@ struct LicenseSettingsSection: View {
         }
 
         Section {
-            Text("Slate Pro is available as a monthly or yearly plan, or as a one-time Lifetime purchase. Our Merchant of Record handles checkout and VAT. Your licence key is stored in the macOS Keychain and is sent only to the licence server to activate and re-check this Mac - never included in a settings export.")
+            Text("Slate Pro is a one-time purchase - pay once and keep it, every future update included. No subscription. Our Merchant of Record handles checkout and VAT. Your licence key is stored in the macOS Keychain and is sent only to the licence server to activate and re-check this Mac - never included in a settings export.")
                 .font(.caption2).foregroundStyle(.secondary)
         }
     }
@@ -315,7 +315,7 @@ struct ProUpsellView: View {
                         }
                     }
 
-                    Text("Monthly, yearly or Lifetime · use on up to \(ProInfo.deviceLimit) Macs · VAT handled at checkout.")
+                    Text("One-time purchase, no subscription · use on up to \(ProInfo.deviceLimit) Macs · VAT handled at checkout.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(20)

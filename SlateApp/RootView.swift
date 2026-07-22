@@ -74,6 +74,9 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Drives the Apple-style launch update dialog. Raised when the updater surfaces a
+    /// newer, non-skipped build; the quiet sidebar pill remains the fallback entry point.
+    @State private var showUpdatePrompt = false
 
     /// The sidebar is OUR panel, not NavigationSplitView's: the system panel's
     /// corner radius can't be controlled and never matched the window. Ours is
@@ -234,6 +237,14 @@ struct RootView: View {
         .onOpenURL { model.handleAutomationURL($0) }
         // Silent, throttled licence re-check on launch (offline-safe).
         .task { await model.pro.refreshIfDue() }
+        // Apple-style launch update dialog: raise it once the throttled launch check
+        // finds a newer build the user hasn't chosen to skip.
+        .onChange(of: model.updater.availableManifest?.version) { _, version in
+            if let version, version != model.settings.skippedUpdateVersion { showUpdatePrompt = true }
+        }
+        .sheet(isPresented: $showUpdatePrompt) {
+            UpdatePromptView(onClose: { showUpdatePrompt = false }).environment(model)
+        }
     }
 }
 

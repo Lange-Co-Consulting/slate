@@ -1,6 +1,9 @@
 import SwiftUI
 import SlateUI
 import SlateCore
+#if SLATE_PRO
+import SlatePro   // QuickPanelController (Slate Quick, ⌥Space) lives in the paid layer
+#endif
 
 @main
 struct SlateApp: App {

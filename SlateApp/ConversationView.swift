@@ -4,6 +4,18 @@ import AppKit
 import UniformTypeIdentifiers
 import SlateCore
 
+/// Reports the measured height of the floating bottom bar (chat composer or
+/// roundtable controls) so the transcript can reserve exactly enough clearance
+/// for its last message to clear the bar - regardless of chips, the no-model
+/// hint, or a multiline field. A fixed spacer used to let the last bubble slide
+/// under the glass bar and bleed through it.
+private struct BottomBarHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 84
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct ConversationView: View {
     @Environment(AppModel.self) private var model
     @Environment(FlowRuntime.self) private var flow
@@ -83,6 +95,10 @@ struct ConversationView: View {
     /// auto-scrolls then - scrolling up during generation stays where you are
     /// instead of being yanked back down on every token.
     @State private var pinnedToBottom = true
+    /// Live height of the floating bottom bar (composer / roundtable controls),
+    /// fed by `BottomBarHeightKey`; drives the transcript's bottom clearance so
+    /// the last message always sits fully above the glass bar.
+    @State private var bottomBarHeight: CGFloat = 84
     /// Scroll telemetry for the pin logic: direction (offset delta) + at-bottom.
     private struct ScrollProbe: Equatable {
         var offset: CGFloat
@@ -129,6 +145,7 @@ struct ConversationView: View {
             transcript(convo)
                 .overlay(alignment: .top) { agentHeader(convo) }
                 .overlay(alignment: .bottom) { roundtableControls(convo) }
+                .onPreferenceChange(BottomBarHeightKey.self) { bottomBarHeight = $0 }
                 .frame(minWidth: 400)
         }
     }
@@ -261,6 +278,7 @@ struct ConversationView: View {
         .padding(.horizontal, 28).padding(.top, 6).padding(.bottom, 16)
         .frame(maxWidth: Self.contentWidth)
         .frame(maxWidth: .infinity)
+        .background { GeometryReader { g in Color.clear.preference(key: BottomBarHeightKey.self, value: g.size.height) } }
         .animation(.smooth(duration: 0.2), value: busyHere)
         .sheet(isPresented: $showAgentConfig) {
             RoundtableSetup(convo: convo, isSheet: true, onDone: { showAgentConfig = false })
@@ -424,6 +442,7 @@ struct ConversationView: View {
             }
             .animation(.snappy(duration: 0.15), value: isDropTargeted)
             .frame(minWidth: 400)   // split panes can't squeeze the chat into a sliver
+            .onPreferenceChange(BottomBarHeightKey.self) { bottomBarHeight = $0 }
             .onChange(of: convo.id) { _, _ in attachedImage = nil }
             .onChange(of: model.activeModelIsVision) { _, vis in if !vis { attachedImage = nil } }
     }
@@ -1248,7 +1267,10 @@ struct ConversationView: View {
                         .id("streaming")
                         .transition(.opacity)
                     }
-                    Color.clear.frame(height: 96).id("bottom")   // clearance for the floating composer
+                    // Clearance = the live bottom-bar height (+ gap) so the last
+                    // message always clears the floating glass bar instead of
+                    // sliding under it and bleeding through.
+                    Color.clear.frame(height: bottomBarHeight + 20).id("bottom")
                 }
                 .padding(.horizontal, 28).padding(.vertical, 18)
                 .frame(maxWidth: Self.contentWidth)               // wide, balanced reading column…
@@ -1448,6 +1470,7 @@ struct ConversationView: View {
         .padding(.horizontal, 28).padding(.top, 6).padding(.bottom, 16)
         .frame(maxWidth: Self.contentWidth)   // same column as the transcript - input lines up under the text
         .frame(maxWidth: .infinity)
+        .background { GeometryReader { g in Color.clear.preference(key: BottomBarHeightKey.self, value: g.size.height) } }
         .animation(.snappy(duration: 0.28), value: attachedImage)
         // Key on the Bool, not the text - otherwise every keystroke animates the
         // subtree. Without this the slash menu pops unanimated and its
