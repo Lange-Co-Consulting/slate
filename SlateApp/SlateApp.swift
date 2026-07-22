@@ -44,6 +44,7 @@ struct SlateApp: App {
                     flow.connectLLM(model); flow.start()
                     #if SLATE_PRO
                     quick.connect(host: model); quick.start()
+                    model.startAutomationScheduler()
                     #endif
                 }
         }

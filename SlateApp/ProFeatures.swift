@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SlateCore
 import SlateUI
+import SlateLlama   // LlamaEngine, for building headless automation engines
 #if SLATE_PRO
 import SlatePro
 #endif
@@ -66,6 +67,10 @@ protocol ProFeatures {
     func localToolsSettings(gate: any ApprovalGate,
                             requirePro: @escaping () -> Bool,
                             onViewAudit: @escaping () -> Void) -> AnyView
+
+    /// The Automations surface (Pro, Phase: automations). Official returns the real
+    /// tab (list + editor, and later the run + scheduler); free returns an upsell.
+    func automationsSurface() -> AnyView
 }
 
 /// A self-contained image-generation request in public types only (no SlateDiffusion),
@@ -123,6 +128,7 @@ struct DefaultFreeProFeatures: ProFeatures {
                             onViewAudit: @escaping () -> Void) -> AnyView {
         AnyView(ProLocalToolsUpsell())
     }
+    func automationsSurface() -> AnyView { AnyView(ProFeaturePlaceholder(feature: .automations)) }
 }
 
 /// The free build's stand-in for the Local tools · MCP settings section: a single row
@@ -158,6 +164,11 @@ struct SlateProFeatures: ProFeatures {
     let imageEngine: ProImageEngine
     /// The private local-tools/MCP service — its whole orchestration lives in slate-pro.
     let localTools: LocalMCPService
+    /// The private automation store (definitions + run history), shared with the scheduler.
+    let automations: AutomationStore
+    /// The shared automation runner + the in-app scheduler that fires due automations.
+    let automationRunner: AutomationRunner
+    let automationScheduler: AutomationScheduler
     func allows(_ cap: SlateCapability) -> Bool { license.entitlement.allows(cap) }
     var isPro: Bool { license.isPro }
     func setNetworkAccessAllowed(_ allowed: Bool) { license.networkAccessAllowed = allowed }
@@ -184,6 +195,7 @@ struct SlateProFeatures: ProFeatures {
         AnyView(ProLocalToolsSettings(service: localTools, gate: gate,
                                       requirePro: requirePro, onViewAudit: onViewAudit))
     }
+    func automationsSurface() -> AnyView { AnyView(AutomationsView(store: automations, runner: automationRunner)) }
 }
 
 /// The host contract slate-pro's Pro feature views call back through (Phase 3). Only
@@ -199,6 +211,56 @@ extension AppModel: ProHost {
     var palette: SlatePalette { settings.palette }
     var themeColorScheme: ColorScheme? { settings.theme.colorScheme }
     // `isModelLoaded` and `quickGenerate(system:user:imagePath:)` already exist on AppModel.
+
+    var availableModels: [AutomationModelOption] {
+        var out = models.map { AutomationModelOption(ref: $0.url.path, label: $0.name, isLocal: true) }
+        out += settings.cloudProviders.filter { hasCloudKey($0) }
+            .map { AutomationModelOption(ref: "cloud:\($0.id)", label: $0.name, isLocal: false) }
+        out += settings.openCodeModels
+            .map { AutomationModelOption(ref: "opencode:\($0)", label: "OpenCode · \($0)", isLocal: false) }
+        return out
+    }
+
+    func makeAutomationEngine(modelRef: String) async throws -> any LLMEngine {
+        if modelRef.hasPrefix("cloud:") {
+            let id = String(modelRef.dropFirst("cloud:".count))
+            guard let p = settings.cloudProviders.first(where: { $0.id == id }) else {
+                throw ProHostError.modelUnavailable("That cloud model is no longer configured.")
+            }
+            return OpenAICompatibleEngine(provider: p, apiKey: KeychainStore.get(account: p.id))
+        }
+        if modelRef.hasPrefix("opencode:") {
+            let mid = String(modelRef.dropFirst("opencode:".count))
+            guard let engine = OpenCodeEngine(modelID: mid, cliPath: settings.openCodeCliPath) else {
+                throw ProHostError.modelUnavailable("OpenCode is not available.")
+            }
+            return engine
+        }
+        // Local GGUF: build a fresh engine off the main actor (a cold load is heavy).
+        let url = URL(fileURLWithPath: modelRef)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw ProHostError.modelUnavailable("The model file was moved or deleted.")
+        }
+        let mmproj = ModelCatalog.mmproj(for: url).flatMap { isLoadableGGUF($0) ? $0.path : nil }
+        let ctx = UInt32(settings.contextWindow)
+        let path = url.path
+        return try await Task.detached { try LlamaEngine(modelPath: path, mmprojPath: mmproj, nCtx: ctx) }.value
+    }
+
+    func automationWebTools(enabled: Bool) -> [RegisteredTool] {
+        guard enabled, !settings.silentModeEnabled, webSearchConfig.isConfigured else { return [] }
+        return WebSearch.tools(config: webSearchConfig, session: webSearchSession)
+    }
+
+    var isIdleForRun: Bool {
+        !isGenerating && !loadingModel && !roundtableActive && !voiceGenerating && !automationRunning
+    }
+
+    /// Start the in-app automation scheduler at launch (official builds only). The
+    /// scheduler fires due automations while Slate runs and schedules a best-effort wake.
+    func startAutomationScheduler() {
+        (pro as? SlateProFeatures)?.automationScheduler.start(host: self)
+    }
 }
 #endif
 

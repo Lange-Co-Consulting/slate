@@ -101,6 +101,15 @@ final class AppSettings {
     var webSearchEnabled: Bool {
         didSet { UserDefaults.standard.set(webSearchEnabled, forKey: "slate.webSearchEnabled") }
     }
+    /// BYO web-search provider for LOCAL models (the API key lives in the Keychain under
+    /// "slate.websearch.<provider>"). Cloud engines use their own built-in search.
+    var webSearchProvider: WebSearchProvider {
+        didSet { UserDefaults.standard.set(webSearchProvider.rawValue, forKey: "slate.webSearchProvider") }
+    }
+    /// Base URL for a self-hosted SearXNG instance (used when the provider is SearXNG).
+    var webSearchSearxngURL: String? {
+        didSet { UserDefaults.standard.set(webSearchSearxngURL, forKey: "slate.webSearchSearxngURL") }
+    }
     /// Cloud execution can send prompts, paths and selected project context to
     /// the configured Claude service. It is always an explicit opt-in.
     var cloudEnabled: Bool {
@@ -327,6 +336,8 @@ final class AppSettings {
             .flatMap { try? JSONDecoder().decode([PalettePreset].self, from: $0) } ?? []
         memoryEnabled = (UserDefaults.standard.object(forKey: "slate.memoryEnabled") as? Bool) ?? true
         webSearchEnabled = (UserDefaults.standard.object(forKey: "slate.webSearchEnabled") as? Bool) ?? false
+        webSearchProvider = WebSearchProvider(rawValue: UserDefaults.standard.string(forKey: "slate.webSearchProvider") ?? "") ?? .brave
+        webSearchSearxngURL = UserDefaults.standard.string(forKey: "slate.webSearchSearxngURL")
         cloudEnabled = (UserDefaults.standard.object(forKey: "slate.cloudEnabled") as? Bool) ?? false
         silentModeEnabled = (UserDefaults.standard.object(forKey: "slate.silentModeEnabled") as? Bool) ?? false
         remoteModelDownloadsEnabled = (UserDefaults.standard.object(forKey: "slate.remoteModelDownloadsEnabled") as? Bool) ?? false

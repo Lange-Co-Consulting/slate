@@ -10,7 +10,7 @@ import SlatePro
 /// A Pro-only capability. Drives the upsell sheet's headline and the "what you
 /// get" list, and identifies which gate the user just hit.
 enum ProFeature: String, Identifiable, CaseIterable {
-    case flow, code, agents, image, voice, memory, compare, quickActions, transcriptionPro, localTools
+    case flow, code, agents, image, voice, memory, compare, quickActions, transcriptionPro, localTools, automations
     var id: String { rawValue }
 
     var capability: SlateCapability {
@@ -25,6 +25,7 @@ enum ProFeature: String, Identifiable, CaseIterable {
         case .quickActions: return .quickActions
         case .transcriptionPro: return .transcriptionPro
         case .localTools: return .localTools
+        case .automations: return .automations
         }
     }
 
@@ -40,6 +41,7 @@ enum ProFeature: String, Identifiable, CaseIterable {
         case .quickActions: return "Slate Quick actions"
         case .transcriptionPro: return "Transcribe Pro"
         case .localTools: return "Local tools & MCP"
+        case .automations: return "Automations"
         }
     }
     var blurb: String {
@@ -54,6 +56,7 @@ enum ProFeature: String, Identifiable, CaseIterable {
         case .quickActions: return "Rewrite, transform and replace selected text in any Mac app with one action."
         case .transcriptionPro: return "Queue recordings and label speakers locally for meetings, interviews and podcasts."
         case .localTools: return "Connect local stdio tools while Slate blocks their network access and asks before every run."
+        case .automations: return "Give an agent task a schedule and let Slate run it for you - a small local worker on your Mac."
         }
     }
     var icon: String {
@@ -68,11 +71,12 @@ enum ProFeature: String, Identifiable, CaseIterable {
         case .quickActions: return "bolt"
         case .transcriptionPro: return "person.2.wave.2"
         case .localTools: return "wrench.and.screwdriver"
+        case .automations: return "clock.arrow.2.circlepath"
         }
     }
 
     /// The full Pro list shown on the upsell sheet, in pricing-page order.
-    static let proList: [ProFeature] = [.flow, .code, .agents, .image, .voice, .memory, .compare, .quickActions, .transcriptionPro, .localTools]
+    static let proList: [ProFeature] = [.flow, .code, .agents, .image, .voice, .memory, .compare, .quickActions, .transcriptionPro, .localTools, .automations]
 }
 
 // MARK: - Settings › Licence

@@ -68,6 +68,10 @@ final class ApprovalCoordinator: ApprovalGate {
 final class AppModel {
     var conversations: [Conversation] = []
     var selectedID: Conversation.ID?
+    /// A parallel top-level nav space to conversations: when true the main content area
+    /// shows the Automations surface instead of a conversation (automations are their
+    /// own entity, not a `Conversation.Kind`).
+    var showingAutomations = false
     var models: [ModelEntry] = []
     var activeModelURL: URL?
     var loadingModel = false
@@ -90,6 +94,22 @@ final class AppModel {
     /// True when the active engine can run web search (the cloud passthrough
     /// agents), so the header can show the web-search toggle.
     var activeEngineSupportsWebSearch: Bool { engine?.supportsWebSearch ?? false }
+    /// Shared session for BYO web-search provider calls (local models). Network is only
+    /// touched when `localWebSearchTools` decides search is permitted.
+    @ObservationIgnored lazy var webSearchSession = WebSearch.makeSession()
+    /// The BYO web-search config (provider + Keychain key + optional SearXNG URL).
+    var webSearchConfig: WebSearchConfig {
+        WebSearchConfig(provider: settings.webSearchProvider,
+                        apiKey: KeychainStore.get(account: "slate.websearch.\(settings.webSearchProvider.rawValue)"),
+                        searxngURL: settings.webSearchSearxngURL)
+    }
+    /// `web_search` + `fetch_url` tools for a LOCAL agent turn — only when the user
+    /// enabled search, configured a provider, and Silent Mode is off. Empty otherwise, so
+    /// local models stay fully offline by default. Cloud engines use their own search.
+    var localWebSearchTools: [RegisteredTool] {
+        guard settings.webSearchEnabled, !settings.silentModeEnabled, webSearchConfig.isConfigured else { return [] }
+        return WebSearch.tools(config: webSearchConfig, session: webSearchSession)
+    }
     /// Enqueue a toast. `action` adds an inline button (e.g. "Load model").
     func notify(_ kind: ToastKind, _ text: String, actionLabel: String? = nil, action: (() -> Void)? = nil) {
         toasts.append(ToastItem(kind: kind, text: text, actionLabel: actionLabel, action: action))
@@ -241,8 +261,12 @@ final class AppModel {
 
     init() {
         #if SLATE_PRO
+        let automationStore = AutomationStore()
+        let automationRunner = AutomationRunner()
         self.pro = SlateProFeatures(license: license, imageEngine: ProImageEngine(),
-                                    localTools: LocalMCPService())
+                                    localTools: LocalMCPService(), automations: automationStore,
+                                    automationRunner: automationRunner,
+                                    automationScheduler: AutomationScheduler(store: automationStore, runner: automationRunner))
         #else
         self.pro = DefaultFreeProFeatures()
         #endif
@@ -327,6 +351,45 @@ final class AppModel {
     /// task may still be winding an uninterruptible seat load down) this stays set,
     /// so a second roundtable can't start concurrently and double the RAM load.
     private(set) var roundtableActive = false
+    /// App-wide single-run gate: true while an automation run holds the model. Chat,
+    /// compare and roundtable refuse to start while it is set, and an automation refuses
+    /// to start while any of them is busy — so at most one resource-intensive model run
+    /// is ever active and two models can't be loaded at once.
+    private(set) var automationRunning = false
+
+    /// Non-blocking claim of the single-run gate for an automation. Returns false when
+    /// the app is already busy (a chat turn, model load, roundtable, voice, or another
+    /// automation) so the caller can fail cleanly instead of double-loading a model.
+    @discardableResult
+    func tryBeginExclusiveRun() -> Bool {
+        guard !isGenerating, !loadingModel, !roundtableActive, !voiceGenerating, !automationRunning else { return false }
+        automationRunning = true
+        return true
+    }
+    func endExclusiveRun() { automationRunning = false }
+
+    /// The resident chat engine IF it already serves the requested local model — so an
+    /// automation on the same model reuses it instead of loading a second copy. nil for
+    /// a different model or a cloud engine (the caller then frees + loads its own).
+    func residentEngine(forRef ref: String) -> (any LLMEngine)? {
+        guard let engine, !usingCloud, let url = activeModelURL, url.path == ref else { return nil }
+        return engine
+    }
+
+    /// Unload the resident chat model to free RAM before an automation loads a different
+    /// one — the OOM-safe half of "one model at a time". The user reloads their model
+    /// afterwards. No-op for a cloud engine.
+    func freeResidentModel() async {
+        guard engine != nil else { return }
+        engine?.requestStop()
+        genTask?.cancel(); genTask = nil
+        engine = nil
+        activeModelURL = nil
+        usingCloud = false
+        activeCloudProviderID = nil
+        isGenerating = false; generatingConvoID = nil; streamingText = ""
+        Self.terminateChildProcesses()
+    }
 
     /// One-shot, non-streaming generation for Slate Flow's transcript cleanup.
     /// Local engine only (cloud/passthrough engines behave like agents, not a
@@ -502,7 +565,7 @@ final class AppModel {
     func compareAcrossModels(_ text: String, in id: Conversation.ID) {
         guard requirePro(.compare) else { return }
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, !isGenerating, !roundtableActive else { return }
+        guard !t.isEmpty, !isGenerating, !roundtableActive, !automationRunning else { return }
         var panel: [(name: String, engine: any LLMEngine)] = []
         if let engine, !engine.isPassthroughAgent, !usingCloud {
             engine.clearStop()
@@ -576,7 +639,7 @@ final class AppModel {
         // `roundtableActive` blocks a second roundtable while a prior one is still
         // winding down an uninterruptible seat load after Stop (isGenerating is
         // already false there, so it alone would let a concurrent run slip through).
-        guard !topic.isEmpty, !isGenerating, !voiceGenerating, !loadingModel, !roundtableActive,
+        guard !topic.isEmpty, !isGenerating, !voiceGenerating, !loadingModel, !roundtableActive, !automationRunning,
               let convo = conversations.first(where: { $0.id == id }) else { return }
         let refs = Array(convo.agentModels.prefix(pro.roundtableModelCap))
         guard refs.count >= 2 else {
@@ -1311,7 +1374,7 @@ final class AppModel {
     /// Keep malformed paths, directories, fifos and non-GGUF files away from
     /// llama.cpp. Model files are selected by the user, but the native parser
     /// still deserves a small, explicit file-type boundary before it opens one.
-    private func isLoadableGGUF(_ url: URL) -> Bool {
+    func isLoadableGGUF(_ url: URL) -> Bool {
         guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]),
               values.isRegularFile == true, values.isSymbolicLink != true,
               (values.fileSize ?? 0) >= 4 else { return false }
@@ -1599,7 +1662,7 @@ final class AppModel {
     /// Replace the older half of the current conversation with a model-written
     /// summary. A destructive edit of the stored convo, so it is confirmed first.
     func runCompact() async {
-        guard !isGenerating, !roundtableActive else { notify(.notice, "Wait for the current reply to finish."); return }
+        guard !isGenerating, !roundtableActive, !automationRunning else { notify(.notice, "Wait for the current run to finish."); return }
         guard let id = selectedID,
               let convo = conversations.first(where: { $0.id == id }),
               let engine, !engine.isPassthroughAgent else { return }
@@ -2166,7 +2229,7 @@ final class AppModel {
                     let registry = SlateAgentFactory.fullRegistry(
                         scope: scope, gate: gate, mode: { holder.mode },
                         skipPermissions: { holder.skipPermissions },
-                        extraTools: self.pro.localToolRegistrations + projectMemoryTool,
+                        extraTools: self.pro.localToolRegistrations + projectMemoryTool + self.localWebSearchTools,
                         engine: engine)
                     // Auto-checkpoint the workspace before the agent may edit it (revertable).
                     let cpLabel = String((history.last(where: { $0.role == .user })?.content ?? "turn").prefix(50))

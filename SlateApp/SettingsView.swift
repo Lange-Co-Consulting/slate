@@ -23,6 +23,7 @@ struct SettingsView: View {
     @State private var newBaseURL = "https://api.openai.com/v1"
     @State private var newModel = "gpt-4o"
     @State private var newKey = ""
+    @State private var webSearchKeyDraft = ""
     @State private var openCodeModels: [String] = []
     @State private var selectedOpenCodeModel = ""
     @State private var openCodeStatus: String?
@@ -842,6 +843,53 @@ struct SettingsView: View {
         }
     }
 
+    @ViewBuilder private var webSearchSection: some View {
+        @Bindable var settings = model.settings
+        Section("Web search · local models") {
+            Toggle("Enable web search", isOn: Binding(
+                get: { settings.webSearchEnabled }, set: { settings.webSearchEnabled = $0 }))
+                .toggleStyle(.checkbox)
+                .disabled(settings.silentModeEnabled)
+            if settings.silentModeEnabled {
+                Label("Web search is paused by Silent Mode.", systemImage: "network.slash")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Picker("Provider", selection: Binding(
+                get: { settings.webSearchProvider },
+                set: { settings.webSearchProvider = $0; webSearchKeyDraft = "" })) {
+                ForEach(WebSearchProvider.allCases) { Text($0.label).tag($0) }
+            }
+            if settings.webSearchProvider == .searxng {
+                TextField("SearXNG base URL (https://…)", text: Binding(
+                    get: { settings.webSearchSearxngURL ?? "" },
+                    set: { settings.webSearchSearxngURL = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }))
+                    .textFieldStyle(.roundedBorder)
+            } else {
+                let account = "slate.websearch.\(settings.webSearchProvider.rawValue)"
+                let hasKey = KeychainStore.get(account: account)?.isEmpty == false
+                HStack {
+                    SecureField(hasKey ? "API key saved — enter a new one to replace" : "\(settings.webSearchProvider.label) API key",
+                                text: $webSearchKeyDraft)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Save") {
+                        let k = webSearchKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if k.isEmpty { KeychainStore.delete(account: account) } else { KeychainStore.set(k, account: account) }
+                        webSearchKeyDraft = ""
+                    }
+                    .disabled(webSearchKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if hasKey {
+                        Button("Remove", role: .destructive) { KeychainStore.delete(account: account); webSearchKeyDraft = "" }
+                    }
+                }
+            }
+            Text("Local models get web_search + fetch_url from your own provider (key stored in the Keychain, never exported). Cloud connectors use their own built-in search. Always off in Silent Mode.")
+                .font(.caption2).foregroundStyle(.secondary)
+            if let url = URL(string: settings.webSearchProvider.setupURL) {
+                Link("Set up \(settings.webSearchProvider.label) ↗", destination: url).font(.caption)
+            }
+        }
+    }
+
     @ViewBuilder private var cloudTab: some View {
         @Bindable var settings = model.settings
         Section("Cloud connectors") {
@@ -857,6 +905,7 @@ struct SettingsView: View {
             Text("Off by default. When enabled, prompts and selected project context may be sent to the connector you choose. Cloud connectors are available without a Slate Pro licence; provider charges and subscriptions still apply.")
                 .font(.caption2).foregroundStyle(.secondary)
         }
+        webSearchSection
         Section("CLI · Claude Code") {
             let path = model.settings.claudeCliPath ?? ClaudeCodeEngine.locate()
             LabeledContent("claude CLI", value: path.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "not found")

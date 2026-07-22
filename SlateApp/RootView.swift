@@ -111,8 +111,14 @@ struct RootView: View {
                     .padding(.top, model.isFullscreen ? 8 : 34)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            ConversationView()
-                .frame(maxWidth: .infinity)
+            if model.showingAutomations {
+                model.pro.automationsSurface()
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, model.isFullscreen ? 8 : 34)
+            } else {
+                ConversationView()
+                    .frame(maxWidth: .infinity)
+            }
         }
         .animation(reduceMotion ? nil : .smooth(duration: 0.28), value: model.sidebarVisible)
         // ONE canvas behind sidebar panel AND detail - the panel material blurs
@@ -335,9 +341,11 @@ struct SidebarView: View {
                        hint: "Local image generation is a Pro feature.")
                 navRow(.agents, "Roundtable", "person.3", pro: .modelCompare,
                        hint: "Free: 2 models. Pro: as many models as you want, plus a closing synthesis.")
+                automationsNavRow
             }
             .padding(.horizontal, 8).padding(.top, 8)
             .animation(.snappy(duration: 0.18), value: tab)
+            .animation(.snappy(duration: 0.18), value: model.showingAutomations)
 
             Button { model.newConversation(kind: tab) } label: {
                 HStack(spacing: 8) {
@@ -423,7 +431,7 @@ struct SidebarView: View {
     /// CLOSES the other-kind conversation and opens this kind's newest session
     /// (or starts a fresh one when there are none).
     private func switchTab(_ k: Conversation.Kind) {
-        withAnimation(.snappy(duration: 0.15)) { tab = k }
+        withAnimation(.snappy(duration: 0.15)) { tab = k; model.showingAutomations = false }
         guard model.selected?.kind != k else { return }
         if let newest = model.sortedConversations.first(where: { $0.kind == k }) {
             model.selectedID = newest.id
@@ -453,7 +461,7 @@ struct SidebarView: View {
     /// selection highlight (the Mail / Notes source-list pattern).
     private func navRow(_ k: Conversation.Kind, _ label: String, _ icon: String,
                         pro: SlateCapability? = nil, hint: String = "") -> some View {
-        let selected = tab == k
+        let selected = tab == k && !model.showingAutomations
         // A PRO tag on features the current user can't fully use, so Pro is visible
         // up front instead of only being discovered via the upsell on first use.
         // Hovering the tag (or the row) reveals what Free gives vs what Pro unlocks.
@@ -489,6 +497,42 @@ struct SidebarView: View {
         .help(locked && !hint.isEmpty ? hint : label)
         .accessibilityLabel(locked ? "\(label), Pro feature" : label)
         .accessibilityHint(locked ? hint : "")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// Automations is a top-level space, not a `Conversation.Kind`, so it gets its own
+    /// row driven by `model.showingAutomations` rather than `switchTab`.
+    private var automationsNavRow: some View {
+        let selected = model.showingAutomations
+        let locked = !model.pro.isPro
+        return Button {
+            withAnimation(.snappy(duration: 0.15)) { model.showingAutomations = true }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "clock.arrow.2.circlepath").font(.system(size: 13, weight: .medium)).frame(width: 20)
+                Text("Automations").font(.callout.weight(.medium))
+                Spacer(minLength: 0)
+                if locked {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .bold)).tracking(0.4)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Capsule().fill(.quaternary)).foregroundStyle(.secondary)
+                        .help("Automations - Pro")
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .foregroundStyle(selected ? AnyShapeStyle(.primary)
+                             : locked ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(palette.enabled ? palette.controlAccent.opacity(0.16) : Color.primary.opacity(0.09))
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help("Automations")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
