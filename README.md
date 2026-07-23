@@ -39,6 +39,7 @@ small speech models ship.
 | **Roundtable** | Several local models debate a topic in turns, then synthesize one combined answer |
 | **On-device images** | stable-diffusion.cpp text-to-image and img2img, no cloud round-trip |
 | **Voice & Flow** | Hands-free voice conversations, plus hold-a-hotkey dictation into *any* Mac app |
+| **Slate Remote** *(beta)* | Pair your iPhone by QR (Settings ▸ Remote) and chat with your Mac's models from the couch — live streaming over an encrypted link, home Wi-Fi only |
 | **Yours, private** | Offline-first; a master Silent Mode cuts every network client while local work keeps running |
 | **Cloud when you want** | Any OpenAI-compatible API, Claude Code or OpenCode, opt-in and off by default |
 
