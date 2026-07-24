@@ -357,16 +357,16 @@ struct SidebarView: View {
             // modes are added.
             VStack(spacing: 2) {
                 navRow(.chat, "Chats", "bubble.left.and.bubble.right",
-                       tip: "Your chats — this section's conversations are listed below")
+                       tip: "Your chats. This section's conversations are listed below.")
                 navRow(.code, "Code", "chevron.left.forwardslash.chevron.right", pro: .codeEdits,
                        hint: "Free: Ask mode, you approve each change. Pro: Edits & Auto for hands-off editing.",
-                       tip: "Code sessions with a project folder — your sessions are listed below")
+                       tip: "Code sessions with a project folder. Your sessions are listed below.")
                 navRow(.image, "Image", "photo", pro: .imageGeneration,
                        hint: "Local image generation is a Pro feature.",
-                       tip: "Image generation — your image sessions are listed below")
+                       tip: "Image generation. Your image sessions are listed below.")
                 navRow(.agents, "Roundtable", "person.3", pro: .modelCompare,
                        hint: "Free: 2 models. Pro: as many models as you want, plus a closing synthesis.",
-                       tip: "Roundtable: several models discuss a topic — your roundtables are listed below")
+                       tip: "Several models discuss a topic. Your roundtables are listed below.")
                 automationsNavRow
             }
             .padding(.horizontal, 8).padding(.top, 8)

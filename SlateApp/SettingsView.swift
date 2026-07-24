@@ -795,7 +795,7 @@ struct SettingsView: View {
                         model.importSkills(found)
                         skillImportNote = found.isEmpty
                             ? "No new Claude skills found in ~/.claude."
-                            : "Imported \(found.count) skill(s) from Claude — enable the ones you want above."
+                            : "Imported \(found.count) skill(s) from Claude. Enable the ones you want above."
                     }
                 }
                 .help("Find skills you already have under ~/.claude and copy them in")
@@ -903,7 +903,7 @@ struct SettingsView: View {
                 let account = "slate.websearch.\(settings.webSearchProvider.rawValue)"
                 let hasKey = KeychainStore.get(account: account)?.isEmpty == false
                 HStack {
-                    SecureField(hasKey ? "API key saved — enter a new one to replace" : "\(settings.webSearchProvider.label) API key",
+                    SecureField(hasKey ? "API key saved. Enter a new one to replace" : "\(settings.webSearchProvider.label) API key",
                                 text: $webSearchKeyDraft)
                         .textFieldStyle(.roundedBorder)
                     Button("Save") {

@@ -1577,7 +1577,7 @@ struct ConversationView: View {
         // Give an actionable reason instead of failing silently: voice is
         // local-only and needs a model loaded.
         if model.usingCloud {
-            model.notify(.warning, "Voice runs on a local model — turn off Cloud to talk to Slate.")
+            model.notify(.warning, "Voice runs on a local model. Turn off Cloud to talk to Slate.")
             return
         }
         guard model.isModelLoaded else {

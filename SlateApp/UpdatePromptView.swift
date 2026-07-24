@@ -79,7 +79,7 @@ struct UpdatePromptView: View {
         case .installing:
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Installing — Slate will relaunch…").font(.caption).foregroundStyle(.secondary)
+                Text("Installing. Slate will relaunch…").font(.caption).foregroundStyle(.secondary)
             }
         case .failed(let msg):
             Label(msg, systemImage: "exclamationmark.triangle")
