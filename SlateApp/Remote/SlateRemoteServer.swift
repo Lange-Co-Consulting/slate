@@ -54,7 +54,13 @@ final class SlateRemoteServer {
         receive(on: conn)
     }
 
-    private func drop(_ conn: NWConnection) { connections[ObjectIdentifier(conn)] = nil }
+    private func drop(_ conn: NWConnection) {
+        connections[ObjectIdentifier(conn)] = nil
+        peerProto[ObjectIdentifier(conn)] = nil
+    }
+
+    /// Wire version each connected phone announced in its `hello`.
+    private var peerProto: [ObjectIdentifier: Int] = [:]
 
     private func receive(on conn: NWConnection) {
         conn.receiveMessage { [weak self] data, _, _, error in
@@ -76,21 +82,43 @@ final class SlateRemoteServer {
     private func handle(_ text: String, on conn: NWConnection) {
         guard let msg = try? RemoteCodec.decodeClient(text) else { return }
         switch msg {
-        case .hello:
-            let items = model.availableModelOptions.map { ModelInfo(ref: $0.ref, label: $0.label, isLocal: $0.isLocal) }
-            send(.models(items: items, mac: macName), on: conn)
-        case let .prompt(id, modelRef, promptText):
-            startRun(id: id, modelRef: modelRef, text: promptText, on: conn)
+        case let .hello(_, clientProto):
+            // Remember the peer's version: v2 messages are only ever sent to a v2 client.
+            peerProto[ObjectIdentifier(conn)] = clientProto
+            // Prettify here, not on the phone. `InstalledModel.name` is `url.lastPathComponent`,
+            // so the catalog would otherwise reach the phone as raw filenames — the model menu
+            // read "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf". The phone has no ModelName helper,
+            // and the Mac already prettifies conversation model labels the same way.
+            let items = model.availableModelOptions.map {
+                ModelInfo(ref: $0.ref,
+                          label: $0.isLocal ? SidebarView.pretty($0.label) : $0.label,
+                          isLocal: $0.isLocal)
+            }
+            send(.models(items: items, mac: macName, proto: RemoteProtocol.version), on: conn)
+        case let .prompt(id, modelRef, promptText, attachments, _, _):
+            startRun(id: id, modelRef: modelRef, text: promptText, attachments: attachments, on: conn)
         case let .stop(id):
             runTasks[id]?.cancel(); runTasks[id] = nil
+        case let .listConversations(kind):
+            send(.conversations(items: summaries(kind: kind)), on: conn)
+        case let .openConversation(id):
+            guard let uuid = UUID(uuidString: id),
+                  let convo = model.conversations.first(where: { $0.id == uuid }) else {
+                send(.history(id: id, items: []), on: conn); return
+            }
+            send(.history(id: id, items: history(of: convo)), on: conn)
+        case let .fetchImage(imageID):
+            guard let data = imageData(for: imageID) else { return }
+            send(.image(imageID: imageID, data: data), on: conn)
         }
     }
 
-    private func startRun(id: UUID, modelRef: String, text: String, on conn: NWConnection) {
+    private func startRun(id: UUID, modelRef: String, text: String,
+                          attachments: [Attachment] = [], on conn: NWConnection) {
         // Gate: plain local chat is free; only escalate if a Pro-only path is requested.
         // (Text chat needs no capability; extend here when image/voice/automations arrive.)
         runTasks[id] = Task { @MainActor in
-            await runner.run(id: id, modelRef: modelRef, text: text) { [weak self] ev in
+            await runner.run(id: id, modelRef: modelRef, text: text, attachments: attachments) { [weak self] ev in
                 self?.forward(ev, id: id, on: conn)
             }
             self.runTasks[id] = nil
@@ -111,4 +139,68 @@ final class SlateRemoteServer {
             send(.error(id: id, kind: kind, msg: m), on: conn)
         }
     }
+
+    // MARK: - v2: browsing the Mac's conversations
+
+    /// The Mac's own kinds do not match the wire enum one-for-one: `agents` is the roundtable.
+    private func wireKind(_ k: Conversation.Kind) -> ConversationKind {
+        switch k {
+        case .chat: .chat
+        case .code: .code
+        case .image: .image
+        case .agents: .roundtable
+        }
+    }
+
+    /// Newest first, optionally narrowed to one kind. Titles and model labels are prettified
+    /// HERE: the phone has no access to ModelName and should never render a raw GGUF filename.
+    private func summaries(kind: ConversationKind?) -> [ConversationSummary] {
+        model.conversations
+            .filter { kind == nil || wireKind($0.kind) == kind }
+            .sorted { ($0.messages.last?.id.uuidString ?? "") > ($1.messages.last?.id.uuidString ?? "") }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(200)
+            .map { c in
+                let last = c.messages.last(where: { $0.role == .assistant || $0.role == .user })
+                let preview = last?.content
+                    .replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .prefix(140)
+                let label = c.pinnedModel.map { SidebarView.pretty(URL(fileURLWithPath: $0).lastPathComponent) }
+                return ConversationSummary(
+                    id: c.id.uuidString,
+                    kind: wireKind(c.kind),
+                    title: c.title,
+                    subtitle: c.kind == .code ? (c.folderPath as String?) ?? preview.map(String.init)
+                                              : preview.map(String.init),
+                    model: label,
+                    updatedAt: c.createdAt)
+            }
+    }
+
+    /// System and tool turns stay on the Mac: the phone shows a conversation, not a transcript
+    /// of the machinery. Reasoning is left in place and stripped by the phone at render time.
+    private func history(of c: Conversation) -> [HistoryItem] {
+        c.messages
+            .filter { $0.role == .user || $0.role == .assistant }
+            .suffix(300)
+            .map { m in
+                HistoryItem(role: m.role == .user ? "user" : "assistant",
+                            text: m.content,
+                            speaker: m.speaker,
+                            imageID: m.imagePath == nil ? nil : m.id.uuidString)
+            }
+    }
+
+    /// Images are addressed by their MESSAGE id, never by path, so the wire never carries the
+    /// Mac's filesystem layout and the phone cannot ask for an arbitrary file.
+    private func imageData(for imageID: String) -> Data? {
+        guard let uuid = UUID(uuidString: imageID) else { return nil }
+        for convo in model.conversations {
+            guard let m = convo.messages.first(where: { $0.id == uuid }), let path = m.imagePath else { continue }
+            return try? Data(contentsOf: URL(fileURLWithPath: path))
+        }
+        return nil
+    }
+
 }

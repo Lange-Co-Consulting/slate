@@ -10,7 +10,7 @@
     <key>destination</key>
     <string>upload</string>
     <key>teamID</key>
-    <string>REPLACE_WITH_APPLE_TEAM_ID</string>
+    <string>3975GM452K</string>
     <key>signingStyle</key>
     <string>automatic</string>
     <key>uploadSymbols</key>

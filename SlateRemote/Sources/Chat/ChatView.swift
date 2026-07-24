@@ -1,304 +1,245 @@
+import PhotosUI
 import SwiftUI
 import SlateRemoteProtocol
 
+/// One conversation.
+///
+/// The view is thin on purpose: the conversation and any run in flight belong to `AppState`,
+/// so opening the drawer, glancing at another surface or switching chats no longer aborts the
+/// answer. It used to hold a `@State` copy and write it back on disappear, which meant leaving
+/// the screen mid-answer had to kill the run to stop its tokens landing in the next chat.
 struct ChatView: View {
     @Environment(AppState.self) private var app
-    @Environment(\.slatePalette) private var pal
-    @Environment(\.colorScheme) private var scheme
-    @State var conversation: Conversation
+    let conversationID: Conversation.ID
+    let menu: AnyView
+
     @State private var input = ""
-    @State private var streamTask: Task<Void, Never>?
-    @State private var isStreaming = false
-    @State private var lastError: String?
-    @State private var activeRunID: UUID?     // the assistant bubble currently streaming
-    @State private var proNudge: String?      // brief "Slate Pro feature" hint
+    @State private var staged: [StagedAttachment] = []
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var showFileImporter = false
+    @State private var showPhotoPicker = false
+    @State private var didLand = false
     @FocusState private var composerFocused: Bool
 
-    /// Live when a real Mac link is up; otherwise we fall back to the demo mock.
-    private var isLive: Bool { !app.isDemo && app.client.phase == .ready }
+    private var convo: Conversation? { app.conversations.first { $0.id == conversationID } }
+    private var messages: [ChatMessage] { convo?.messages ?? [] }
+    private var streaming: Bool { app.isStreaming(conversationID) }
+    private var canSend: Bool {
+        !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !staged.isEmpty
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if app.macStatus != .reachable {
-                MacStatusBanner().padding(.horizontal, 12).padding(.top, 8)
-            }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(conversation.messages) { msg in
-                            MessageBubble(message: msg).id(msg.id)
-                        }
-                        if let lastError {
-                            RunErrorCard(text: lastError, retry: retry).id("error")
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 18) {
+                    if app.macStatus != .reachable {
+                        MacStatusBanner().padding(.bottom, 4)
                     }
-                    .padding(.horizontal, 14).padding(.vertical, 14)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: conversation.messages.count) { _, _ in
-                    withAnimation { proxy.scrollTo(conversation.messages.last?.id, anchor: .bottom) }
-                }
-                // Streaming grows the last bubble without changing the count —
-                // keep it pinned to the bottom as tokens land.
-                .onChange(of: conversation.messages.last?.text.count ?? 0) { _, _ in
-                    withAnimation(.smooth(duration: 0.15)) {
-                        proxy.scrollTo(conversation.messages.last?.id, anchor: .bottom)
+                    if messages.isEmpty { opener }
+                    ForEach(messages) { msg in
+                        MessageTurn(message: msg).id(msg.id)
+                            .transition(.opacity.combined(with: .offset(y: 12)))
                     }
+                    if let error = app.runError[conversationID] {
+                        RunErrorCard(text: error) { app.retry(in: conversationID) }.id("error")
+                    }
+                    // Room for the floating composer. Without it the newest reply sits under
+                    // the glass and has to be scrolled out from beneath it.
+                    Color.clear.frame(height: 96).id("bottom")
                 }
+                .padding(.horizontal, 16).padding(.top, 12)
             }
-            if let proNudge {
-                ProNudgeBar(text: proNudge).padding(.horizontal, 12).padding(.bottom, 6)
-                    .transition(.opacity)
+            .scrollDismissesKeyboard(.interactively)
+            .animation(.smooth(duration: 0.28), value: messages.count)
+            // Land at the newest message, not the oldest. Opening a long chat used to start at
+            // the top, so the first thing shown was whatever was said days ago.
+            .task(id: conversationID) {
+                didLand = false
+                proxy.scrollTo("bottom", anchor: .bottom)
+                await Task.yield()
+                proxy.scrollTo("bottom", anchor: .bottom)
+                didLand = true
             }
-            composer
-        }
-        .animation(.smooth(duration: 0.2), value: proNudge)
-        .onAppear { wireCallbacks() }
-        .onDisappear {
-            // The live client's callbacks are rebound per-view, so leaving mid-stream would
-            // orphan the in-flight run (its tokens land in the next chat's callbacks and are
-            // dropped, leaving a bubble stuck "streaming"). Stop it cleanly before persisting.
-            // Background continuation across navigation is a P1 item in the full-remote-app spec.
-            if isStreaming { stop() }
-            app.upsert(conversation)
-        }
-        .task(id: proNudge) {
-            guard proNudge != nil else { return }
-            try? await Task.sleep(for: .seconds(3.5))
-            proNudge = nil
+            .onChange(of: messages.count) { _, _ in
+                withAnimation(.smooth(duration: 0.3)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+            .onChange(of: messages.last?.text.count ?? 0) { _, _ in
+                guard didLand else { return }
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
         }
         .canvas()
-        .navigationTitle(conversation.title)
+        .safeAreaInset(edge: .bottom) { composer }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // The title is just a title; model selection lives in the trailing menu.
-            ToolbarItem(placement: .principal) {
-                VStack(spacing: 1) {
-                    Text(conversation.title).font(.slate(16, .medium)).foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                    Text(conversation.model).font(.slate(12)).foregroundStyle(Theme.inkSecondary)
-                        .lineLimit(1)
+            ToolbarItem(placement: .topBarLeading) { menu }
+            ToolbarItem(placement: .principal) { modelControl }
+        }
+        .task(id: app.proNudge[conversationID]) {
+            guard app.proNudge[conversationID] != nil else { return }
+            try? await Task.sleep(for: .seconds(3.5))
+            app.proNudge[conversationID] = nil
+        }
+    }
+
+    // MARK: Header
+
+    /// The title IS the model control, the way every reference AI app does it. It used to be a
+    /// static label with the picker buried in a submenu behind an ellipsis.
+    private var modelControl: some View {
+        Menu {
+            ForEach(app.client.models, id: \.ref) { m in
+                Button { switchModel(ref: m.ref, label: m.label) } label: {
+                    Label(m.label, systemImage: convo?.modelRef == m.ref ? "checkmark" : "cpu")
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Menu("Model") {
-                        ForEach(app.models, id: \.self) { m in
-                            Button { conversation.model = m; app.currentModel = m } label: {
-                                Label(m, systemImage: conversation.model == m ? "checkmark" : "cpu")
-                            }
-                        }
-                    }
-                    Button("Simulate a model-too-large error", systemImage: "exclamationmark.triangle") {
-                        simulateOOM()
-                    }
-                } label: { Image(systemName: "ellipsis.circle").foregroundStyle(Theme.ink) }
+            if app.client.models.isEmpty {
+                ForEach(app.models, id: \.self) { label in
+                    Button { switchModel(ref: nil, label: label) } label: { Text(label) }
+                }
             }
+        } label: {
+            HStack(spacing: 4) {
+                Text(convo?.modelLabel ?? "Slate").font(.slate(16, .medium))
+                    .foregroundStyle(Theme.ink).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.inkSecondary)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .contentShape(Rectangle())
         }
-        .toolbarBackground(Theme.washedCanvas(pal, scheme), for: .navigationBar)
+        .accessibilityLabel("Model: \(convo?.modelLabel ?? "none"). Tap to switch.")
     }
+
+    /// What a brand-new chat shows instead of an empty void.
+    private var opener: some View {
+        VStack(spacing: 8) {
+            WeaveMark(size: 40)
+            Text("Ask your Mac anything")
+                .font(.slate(21, .medium)).foregroundStyle(Theme.ink)
+            Text("It runs on \(convo?.modelLabel ?? "your Mac"), on your own hardware.")
+                .font(.slate(14)).foregroundStyle(Theme.inkSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 90).padding(.bottom, 20)
+        .transition(.opacity)
+    }
+
+    // MARK: Composer
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            HStack {
+        VStack(spacing: 8) {
+            if let nudge = app.proNudge[conversationID] {
+                ProNudgeBar(text: nudge).transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            if !staged.isEmpty {
+                AttachmentStrip(items: staged) { item in
+                    withAnimation(.snappy(duration: 0.2)) { staged.removeAll { $0.id == item.id } }
+                }
+            }
+            HStack(alignment: .bottom, spacing: 8) {
+                Menu {
+                    Button("Photo library", systemImage: "photo.on.rectangle") { showPhotoPicker = true }
+                    Button("Files", systemImage: "folder") { showFileImporter = true }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.slate(17, .medium)).foregroundStyle(Theme.inkSecondary)
+                        .frame(width: 34, height: 34).contentShape(Circle())
+                }
+                .accessibilityLabel("Attach a photo or file")
+
                 TextField("Message your Mac…", text: $input, axis: .vertical)
                     .font(.slate(16)).foregroundStyle(Theme.ink)
-                    .lineLimit(1...5)
+                    .lineLimit(1...6)
                     .focused($composerFocused)
                     .tint(Theme.ink)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(SlateShape(radius: 18).fill(Theme.surface))
-            .overlay(SlateShape(radius: 18).strokeBorder(Theme.hairline, lineWidth: 1))
+                    .padding(.vertical, 7)
 
-            if isStreaming {
-                Button(action: stop) {
-                    Image(systemName: "stop.fill").font(.slate(16, .medium))
-                        .foregroundStyle(Theme.canvas)
-                        .frame(width: 44, height: 44).background(Circle().fill(Theme.danger))
-                }.buttonStyle(.plain)
-            } else {
-                Button(action: send) {
-                    Image(systemName: "arrow.up").font(.slate(17, .medium))
-                        .foregroundStyle(input.isEmpty ? Theme.canvas : (pal.enabled ? pal.accentInk : Theme.canvas))
-                        .frame(width: 44, height: 44)
-                        .background(Circle().fill(input.isEmpty ? Theme.inkTertiary
-                                                                 : (pal.enabled ? pal.accent : Theme.ink)))
-                }
-                .buttonStyle(.plain).disabled(input.isEmpty)
+                sendButton
+            }
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .glassCapsule(radius: 26)
+        }
+        .padding(.horizontal, 14).padding(.bottom, 10)
+        .animation(.smooth(duration: 0.24), value: staged.count)
+        .animation(.smooth(duration: 0.24), value: app.proNudge[conversationID])
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItems,
+                      maxSelectionCount: 4, matching: .images)
+        .onChange(of: photoItems) { _, items in Task { await stagePhotos(items) } }
+        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item],
+                      allowsMultipleSelection: true) { result in
+            guard case let .success(urls) = result else { return }
+            withAnimation(.snappy(duration: 0.2)) {
+                staged.append(contentsOf: urls.compactMap(AttachmentBuilder.file(at:)))
             }
         }
-        .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 10)
-        .background(Theme.washedCanvas(pal, scheme))
     }
 
-    // MARK: - Send / stream (live client, or demo mock)
+    private var sendButton: some View {
+        Button { streaming ? app.stopRun(in: conversationID) : send() } label: {
+            Image(systemName: streaming ? "stop.fill" : "arrow.up")
+                .font(.slate(16, .medium))
+                .foregroundStyle(Theme.canvas)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(fill))
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .disabled(!streaming && !canSend)
+        .animation(.snappy(duration: 0.2), value: streaming)
+        .animation(.snappy(duration: 0.2), value: canSend)
+        .accessibilityLabel(streaming ? "Stop" : "Send")
+    }
+
+    @Environment(\.slatePalette) private var pal
+    private var fill: Color {
+        if streaming { return Theme.danger }
+        guard canSend else { return Theme.inkTertiary }
+        return pal.enabled ? pal.accent : Theme.ink
+    }
+
+    // MARK: Actions
 
     private func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        input = ""; lastError = nil; proNudge = nil; composerFocused = false
-        conversation.messages.append(.init(role: .user, text: text))
-        startRun(for: text)
+        guard canSend else { return }
+        let outgoing = staged.map(\.attachment)
+        let shown = text.isEmpty ? attachmentSummary(staged) : text
+        input = ""
+        withAnimation(.snappy(duration: 0.22)) { staged.removeAll() }
+        app.send(text, attachments: outgoing, in: conversationID, shownAs: shown)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    private func retry() {
-        lastError = nil
-        guard let text = conversation.messages.last(where: { $0.role == .user })?.text else { return }
-        startRun(for: text)
+    private func attachmentSummary(_ items: [StagedAttachment]) -> String {
+        items.count == 1 ? items[0].name : "\(items.count) attachments"
     }
 
-    /// Append the empty streaming assistant bubble, then either drive it from the
-    /// Mac (live) or the in-app mock (demo). Tokens land back by matching `id`.
-    private func startRun(for text: String) {
-        let assistant = ChatMessage(role: .assistant, text: "", streaming: true)
-        conversation.messages.append(assistant)
-        let id = assistant.id
-        isStreaming = true
-        activeRunID = id
-
-        if isLive, let ref = resolveModelRef() {
-            app.client.prompt(id: id, model: ref, text: text)
-        } else {
-            runMock(into: id, reply: cannedReply(for: text),
-                    tool: text.lowercased().contains("news") ? "Searching the web…" : nil)
+    private func stagePhotos(_ items: [PhotosPickerItem]) async {
+        var built: [StagedAttachment] = []
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let img = UIImage(data: data) else { continue }
+            if let a = AttachmentBuilder.image(img) { built.append(a) }
+        }
+        let made = built
+        await MainActor.run {
+            withAnimation(.snappy(duration: 0.2)) { staged.append(contentsOf: made) }
+            photoItems = []
         }
     }
 
-    /// Map the picker's display label back to the Mac's model ref for the wire.
-    private func resolveModelRef() -> String? {
-        let items = app.client.models
-        guard !items.isEmpty else { return nil }
-        return items.first(where: { $0.label == conversation.model })?.ref ?? items.first?.ref
-    }
-
-    private func stop() {
-        if isLive, let id = activeRunID { app.client.stop(id: id) }
-        streamTask?.cancel()
-        endRun(id: activeRunID, dropIfEmpty: true)
-    }
-
-    /// Finish the active bubble: clear its spinner, drop it if nothing streamed.
-    private func endRun(id: UUID?, dropIfEmpty: Bool) {
-        if let id, let i = conversation.messages.firstIndex(where: { $0.id == id }) {
-            conversation.messages[i].streaming = false
-            conversation.messages[i].tool = nil
-            if dropIfEmpty && conversation.messages[i].text.isEmpty {
-                conversation.messages.remove(at: i)
-            }
+    private func switchModel(ref: String?, label: String) {
+        guard let i = app.conversations.firstIndex(where: { $0.id == conversationID }),
+              app.conversations[i].modelRef != ref || app.conversations[i].modelLabel != label
+        else { return }
+        withAnimation(.snappy(duration: 0.2)) {
+            app.conversations[i].modelRef = ref
+            app.conversations[i].modelLabel = label
         }
-        isStreaming = false
-        activeRunID = nil
-    }
-
-    // MARK: - Live client callbacks
-    //
-    // Wired on appear. Each routes by the run's `id` so tokens land in the right
-    // bubble; captured bindings let the escaping closures mutate this view's state.
-    private func wireCallbacks() {
-        let convo = $conversation
-        let streaming = $isStreaming
-        let error = $lastError
-        let nudge = $proNudge
-        let active = $activeRunID
-
-        func index(_ id: UUID) -> Int? { convo.wrappedValue.messages.firstIndex(where: { $0.id == id }) }
-
-        app.client.onToken = { id, s in
-            guard let i = index(id) else { return }
-            if convo.wrappedValue.messages[i].tool != nil { convo.wrappedValue.messages[i].tool = nil }
-            convo.wrappedValue.messages[i].text += s
-        }
-        app.client.onTool = { id, name, phase in
-            guard let i = index(id) else { return }
-            convo.wrappedValue.messages[i].tool = (phase == .start) ? ChatView.toolLabel(name) : nil
-        }
-        app.client.onDone = { id in
-            if let i = index(id) {
-                convo.wrappedValue.messages[i].streaming = false
-                convo.wrappedValue.messages[i].tool = nil
-            }
-            streaming.wrappedValue = false
-            active.wrappedValue = nil
-            if convo.wrappedValue.title == "New chat" {
-                convo.wrappedValue.title = String(convo.wrappedValue.messages.first?.text.prefix(40) ?? "New chat")
-            }
-        }
-        app.client.onError = { id, kind, msg in
-            if let i = index(id) {
-                convo.wrappedValue.messages[i].streaming = false
-                convo.wrappedValue.messages[i].tool = nil
-                if convo.wrappedValue.messages[i].text.isEmpty { convo.wrappedValue.messages.remove(at: i) }
-            }
-            error.wrappedValue = ChatView.errorText(kind, msg)
-            streaming.wrappedValue = false
-            active.wrappedValue = nil
-        }
-        app.client.onLocked = { id, feature in
-            if let i = index(id) {
-                convo.wrappedValue.messages[i].streaming = false
-                convo.wrappedValue.messages[i].tool = nil
-                if convo.wrappedValue.messages[i].text.isEmpty { convo.wrappedValue.messages.remove(at: i) }
-            }
-            nudge.wrappedValue = "\(feature.capitalized) is a Slate Pro feature."
-            streaming.wrappedValue = false
-            active.wrappedValue = nil
-        }
-    }
-
-    private static func toolLabel(_ name: String) -> String {
-        switch name {
-        case "web_search", "web", "search": return "Searching the web…"
-        default: return "Using \(name.replacingOccurrences(of: "_", with: " "))…"
-        }
-    }
-
-    private static func errorText(_ kind: RunErrorKind, _ msg: String) -> String {
-        switch kind {
-        case .oom:
-            return "Your Mac ran low on memory for this model. Try a smaller model, or close other apps on the Mac and retry."
-        case .busy:
-            return "Your Mac is busy with another run. Try again in a moment."
-        case .model:
-            return msg.isEmpty ? "That model couldn't run on your Mac." : msg
-        case .internalError:
-            return msg.isEmpty ? "Something went wrong on your Mac. Try again." : msg
-        }
-    }
-
-    // MARK: - Demo mock
-
-    private func runMock(into id: UUID, reply: String, tool: String?) {
-        if tool != nil, let i = conversation.messages.firstIndex(where: { $0.id == id }) {
-            conversation.messages[i].tool = tool
-        }
-        streamTask = Task {
-            if tool != nil {
-                try? await Task.sleep(for: .seconds(1.0))
-                if Task.isCancelled { return }
-                if let i = conversation.messages.firstIndex(where: { $0.id == id }) {
-                    conversation.messages[i].tool = nil
-                }
-            }
-            for word in reply.split(separator: " ") {
-                try? await Task.sleep(for: .milliseconds(45))
-                if Task.isCancelled { return }
-                guard let i = conversation.messages.firstIndex(where: { $0.id == id }) else { return }
-                conversation.messages[i].text += (conversation.messages[i].text.isEmpty ? "" : " ") + word
-            }
-            endRun(id: id, dropIfEmpty: false)
-            if conversation.title == "New chat" {
-                conversation.title = String(conversation.messages.first?.text.prefix(40) ?? "New chat")
-            }
-        }
-    }
-
-    private func simulateOOM() {
-        lastError = "Your Mac couldn't run \(conversation.model): the model needs more memory than is free right now. Try a smaller model, or close other apps on the Mac and retry."
-    }
-
-    private func cannedReply(for text: String) -> String {
-        "Running \(conversation.model) on your Mac. Here's a concise answer to “\(text.prefix(40))…” — the key points are laid out below, and I can expand any of them."
+        app.rememberModel(ref: ref, label: label)
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 }
 
@@ -314,29 +255,33 @@ struct ProNudgeBar: View {
         }
         .foregroundStyle(Theme.ink)
         .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(SlateShape(radius: Theme.rControl).fill(Theme.surface))
-        .overlay(SlateShape(radius: Theme.rControl).strokeBorder(Theme.hairline, lineWidth: 1))
+        .glassCapsule(radius: Theme.rControl)
     }
 }
 
-struct MessageBubble: View {
+/// One turn.
+///
+/// The user is bubbled and trailing; the assistant is plain text running the full width. Every
+/// reference app does exactly this, and for a good reason — a long answer inside a bordered card
+/// reads as a quotation rather than as the app talking, and the card's inset costs a tenth of
+/// the line length on a phone.
+struct MessageTurn: View {
     let message: ChatMessage
     @Environment(\.slatePalette) private var pal
+
     var body: some View {
         let isUser = message.role == .user
-        let bg: Color = pal.enabled ? (isUser ? pal.userBubble : pal.assistantBubble)
-                                     : (isUser ? Theme.surfaceHigh : Theme.surface)
-        let fg: Color = pal.enabled ? (isUser ? pal.userBubbleInk : pal.assistantBubbleInk)
-                                    : Theme.ink
-        // A hairline defines the monochrome assistant bubble against the canvas;
-        // saturated palette bubbles carry their own edge.
-        let showHairline = !isUser && !pal.enabled
-        let hasContent = !message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let waitingForFirstToken = !isUser && message.streaming && !hasContent && message.tool == nil
+        // The Mac streams raw model output, so a reasoning model's chain of thought arrives
+        // verbatim. Split it off at render time: thoughts never belong in the chat, and while
+        // the model is still thinking we show the typing indicator in their place.
+        let visible = isUser ? message.text : Reasoning.answer(message.text)
+        let hasContent = !visible.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let thinking = !isUser && message.streaming && Reasoning.isThinking(message.text)
+        let waiting = !isUser && message.streaming && !hasContent && message.tool == nil
 
         HStack {
-            if isUser { Spacer(minLength: 40) }
-            VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
+            if isUser { Spacer(minLength: 44) }
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 8) {
                 if let tool = message.tool {
                     HStack(spacing: 6) {
                         Image(systemName: "wrench.and.screwdriver").font(.slate(12))
@@ -344,35 +289,70 @@ struct MessageBubble: View {
                         ProgressView().controlSize(.mini).tint(Theme.inkSecondary)
                     }
                     .foregroundStyle(Theme.inkSecondary)
+                    .transition(.opacity)
                 }
 
-                if waitingForFirstToken {
+                if waiting || thinking {
                     TypingIndicator()
-                        .background(SlateShape(radius: Theme.rBubble).fill(bg))
-                        .overlay {
-                            if showHairline {
-                                SlateShape(radius: Theme.rBubble).strokeBorder(Theme.hairline, lineWidth: 1)
+                } else if hasContent {
+                    if isUser {
+                        Text(visible).font(.slate(16))
+                            .foregroundStyle(pal.enabled ? pal.userBubbleInk : Theme.ink)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .background(SlateShape(radius: Theme.rBubble)
+                                .fill(pal.enabled ? pal.userBubble : Theme.surfaceHigh))
+                    } else {
+                        VStack(alignment: .leading, spacing: 10) {
+                            MarkdownText(text: visible, ink: Theme.ink)
+                                .textSelection(.enabled)
+                            if message.streaming {
+                                // A tail while tokens are still arriving. Without it a slow
+                                // model is indistinguishable from a finished short answer —
+                                // the indicator above only covers the wait before the first
+                                // token, and this cursor was written but never mounted.
+                                StreamingCursor()
+                            } else {
+                                MessageActions(text: visible)
                             }
                         }
-                } else if hasContent {
-                    Group {
-                        if isUser {
-                            Text(message.text).font(.slate(16)).foregroundStyle(fg)
-                                .textSelection(.enabled)
-                        } else {
-                            MarkdownText(text: message.text, ink: fg)
-                        }
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, 11)
-                    .background(SlateShape(radius: Theme.rBubble).fill(bg))
-                    .overlay {
-                        if showHairline {
-                            SlateShape(radius: Theme.rBubble).strokeBorder(Theme.hairline, lineWidth: 1)
-                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
-            if !isUser { Spacer(minLength: 40) }
+            if !isUser { Spacer(minLength: 0) }
+        }
+    }
+}
+
+/// Copy and share, on a finished answer. An answer you cannot get out of the app is an answer
+/// you have to retype somewhere else.
+private struct MessageActions: View {
+    let text: String
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Button {
+                UIPasteboard.general.string = text
+                withAnimation(.snappy) { copied = true }
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } label: {
+                Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                    .font(.slate(12)).labelStyle(.titleAndIcon)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            ShareLink(item: text) {
+                Label("Share", systemImage: "square.and.arrow.up").font(.slate(12))
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Theme.inkTertiary)
+        .buttonStyle(.plain)
+        .task(id: copied) {
+            guard copied else { return }
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation(.snappy) { copied = false }
         }
     }
 }

@@ -15,12 +15,12 @@ struct MacStatusBanner: View {
                               isActive: s == .connecting || s == .waking)
             VStack(alignment: .leading, spacing: 1) {
                 Text(s.label).font(.slate(14, .medium)).foregroundStyle(Theme.ink)
-                Text(s.detail).font(.slate(12)).foregroundStyle(Theme.inkSecondary)
+                Text(detail).font(.slate(12)).foregroundStyle(Theme.inkSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             if let action = s.action {
-                Button(action: wake) {
+                Button { app.retryConnection() } label: {
                     Text(action).font(.slate(13, .medium)).foregroundStyle(Theme.canvas)
                         .padding(.horizontal, 12).padding(.vertical, 6)
                         .background(SlateShape(radius: 9).fill(Theme.ink))
@@ -33,11 +33,12 @@ struct MacStatusBanner: View {
         .overlay(SlateShape(radius: Theme.rControl).strokeBorder(s.tint.opacity(0.35), lineWidth: 1))
     }
 
-    private func wake() {
-        app.macStatus = .waking
-        Task {
-            try? await Task.sleep(for: .seconds(1.8))
-            app.macStatus = .reachable
-        }
+    /// The connected line names the Mac we are actually talking to. `MacStatus.detail` carries
+    /// the concept build's placeholder name, which would otherwise greet every real user with
+    /// somebody else's MacBook.
+    private var detail: String {
+        guard app.macStatus == .reachable, !app.isDemo,
+              let name = app.macs.first?.name, !name.isEmpty else { return app.macStatus.detail }
+        return "\(name) · local network"
     }
 }

@@ -1,6 +1,15 @@
 import SwiftUI
 
 struct SettingsView: View {
+    /// Read from the bundle, not typed in. The literal here still said 0.1.0 after 0.2.0
+    /// shipped, which is exactly how a hardcoded version number always ends up.
+    static var versionLine: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "Version \(short) (\(build))"
+    }
+
     @Environment(AppState.self) private var app
     @Environment(\.slatePalette) private var pal
     @Environment(\.colorScheme) private var scheme
@@ -36,11 +45,14 @@ struct SettingsView: View {
                 VStack(spacing: 10) {
                     SectionCaption(text: "Connection")
                     VStack(spacing: 0) {
-                        SettingsRow(icon: "wifi", title: "Local network", subtitle: "Direct, encrypted") {
-                            Text("On").font(.slate(14)).foregroundStyle(Theme.ok)
+                        SettingsRow(icon: "wifi", title: "Local network",
+                                    subtitle: "Direct and encrypted, over Wi-Fi") {
+                            Text(app.macStatus == .reachable ? "Connected" : app.macStatus.label)
+                                .font(.slate(14))
+                                .foregroundStyle(app.macStatus == .reachable ? Theme.ok : Theme.inkSecondary)
                         }
                         Divider().overlay(Theme.hairline).padding(.leading, 52)
-                        SettingsRow(icon: "cloud.slash", title: "Cloud relay", subtitle: "Off — nothing leaves your network") {
+                        SettingsRow(icon: "cloud.slash", title: "Cloud relay", subtitle: "Off. Nothing leaves your network.") {
                             Text("Off").font(.slate(14)).foregroundStyle(Theme.inkSecondary)
                         }
                     }
@@ -48,13 +60,16 @@ struct SettingsView: View {
                 }
 
                 // Concept build: reach every state for review.
+                #if DEBUG
                 DemoSection()
+                #endif
 
                 // About
                 VStack(spacing: 10) {
                     SectionCaption(text: "About")
                     VStack(spacing: 0) {
-                        SettingsRow(icon: "app.badge", title: "Slate Remote", subtitle: "Version 0.1.0") { EmptyView() }
+                        SettingsRow(icon: "app.badge", title: "Slate Remote",
+                                    subtitle: SettingsView.versionLine) { EmptyView() }
                         Divider().overlay(Theme.hairline).padding(.leading, 52)
                         SettingsRow(icon: "lock.shield", title: "No account, no cloud, no subscription",
                                     subtitle: "Your Mac does the work") { EmptyView() }
@@ -67,7 +82,6 @@ struct SettingsView: View {
         .canvas()
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.washedCanvas(pal, scheme), for: .navigationBar)
     }
 }
 
@@ -116,7 +130,6 @@ struct MacSecurityDetail: View {
         .canvas()
         .navigationTitle("Security")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.washedCanvas(pal, scheme), for: .navigationBar)
         .confirmationDialog("Revoke \(mac.name)?", isPresented: $confirmRevoke, titleVisibility: .visible) {
             Button("Revoke", role: .destructive) {
                 app.macs.removeAll { $0.id == mac.id }
@@ -158,7 +171,7 @@ struct AppearanceSection: View {
 
                 SettingsRow(icon: "paintpalette", title: "Custom colors",
                             subtitle: theme.customColorsEnabled ? theme.preset.name
-                                                                : "Monochrome — Slate's default look") {
+                                                                : "Monochrome. Slate's default look.") {
                     Toggle("", isOn: $theme.customColorsEnabled).labelsHidden()
                 }
             }
@@ -175,7 +188,7 @@ struct AppearanceSection: View {
                     }
                 }
                 .padding(.horizontal, 2)
-                Text("Themes tint the accent, chat bubbles and canvas — the same palettes as the Mac app.")
+                Text("Themes tint the accent, chat bubbles and canvas, using the same palettes as the Mac app.")
                     .font(.slate(12)).foregroundStyle(Theme.inkTertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 4).padding(.top, 2)
@@ -214,8 +227,10 @@ struct PresetSwatch: View {
     }
 }
 
-/// Concept-build helper: drive the ambient Mac status + jump into edge-state
-/// previews, so every screen is reviewable without a real Mac.
+/// Concept-build helper: drive the ambient Mac status and jump into edge-state previews, so
+/// every screen is reviewable without a real Mac. Debug-only — it was shipping to real users,
+/// who have no reason to see a menu that fakes their Mac going offline.
+#if DEBUG
 struct DemoSection: View {
     @Environment(AppState.self) private var app
     var body: some View {
@@ -251,3 +266,4 @@ struct DemoSection: View {
         }
     }
 }
+#endif

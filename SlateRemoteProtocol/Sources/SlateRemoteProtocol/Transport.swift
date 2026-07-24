@@ -7,7 +7,13 @@ import CryptoKit
 public enum RemoteTransport {
     public static let bonjourType = "_slate-remote._tcp"
 
-    public static func newPSK() -> Data { Data(SymmetricKey(size: .bits256).withUnsafeBytes(Array.init)) }
+    /// Length of a pairing key, in bytes. `PairingPayload` rejects anything else, so the two
+    /// must agree — hence one constant rather than a 32 in each place.
+    public static let pskBytes = 32
+
+    public static func newPSK() -> Data {
+        Data(SymmetricKey(size: .init(bitCount: pskBytes * 8)).withUnsafeBytes(Array.init))
+    }
 
     public static func parameters(psk: Data) -> NWParameters {
         let tls = NWProtocolTLS.Options()

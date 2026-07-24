@@ -62,10 +62,9 @@ small speech models ship.
 
 Open the disk image and drag Slate to Applications.
 
-> **First launch, current build:** the published build is signed with our own key, so
-> macOS will say it can't verify the developer. Right-click the app → **Open** → **Open**,
-> once. Our Apple Developer ID came through on 2026-07-24 and the 1.0 release is
-> Developer-ID signed and notarized, which removes this step for good.
+The app is signed with an Apple Developer ID and notarized by Apple, with the ticket
+stapled to the disk image, so it opens with a normal double-click — no right-click
+detour, no "unidentified developer" warning.
 
 Slate is free to use and ships **no** chat or image models: open the Model Manager and
 pick one, or connect an OpenAI-compatible endpoint with your own key. A one-time

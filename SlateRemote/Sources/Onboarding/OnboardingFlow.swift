@@ -75,7 +75,7 @@ struct PermissionPrimingView: View {
                 .font(.slate(16)).foregroundStyle(Theme.inkSecondary)
                 .multilineTextAlignment(.center).lineSpacing(3)
                 .padding(.top, 12).padding(.horizontal, 28)
-            // On-brand heads-up for the OS permission prompt — never a mock of it.
+            // On-brand heads-up for the OS permission prompts, never a mock of them.
             LocalNetworkExplainerCard()
                 .padding(.top, 22).padding(.horizontal, 24)
             Spacer()
@@ -94,15 +94,18 @@ struct PermissionPrimingView: View {
 struct LocalNetworkExplainerCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "wifi")
+            Image(systemName: "hand.raised")
                 .font(.slate(16, .medium))
                 .foregroundStyle(Theme.ink)
                 .frame(width: 24)
                 .padding(.top, 1)
-            Text("iOS will ask for Local Network access — choose “Allow” so your iPhone can find your Mac.")
-                .font(.slate(14)).foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.leading).lineSpacing(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("iOS will ask for Local Network access. Choose “Allow” so your iPhone can find your Mac.")
+                Text("The next screen opens the camera to scan the pairing code, so iOS will ask for that too.")
+            }
+            .font(.slate(14)).foregroundStyle(Theme.inkSecondary)
+            .multilineTextAlignment(.leading).lineSpacing(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(14)
         .slateCard(Theme.rControl)
@@ -114,6 +117,7 @@ struct LocalNetworkExplainerCard: View {
 struct QRScanView: View {
     @Environment(AppState.self) private var app
     @State private var sweep = false
+    @State private var scan: ScanAvailability = .needsPermission
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -131,28 +135,46 @@ struct QRScanView: View {
             .padding(.horizontal, 8).padding(.top, 8)
 
             Spacer()
-            // Camera viewfinder mock with a reticle.
             ZStack {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(Theme.well)
                     .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .strokeBorder(Theme.hairline, lineWidth: 1))
-                // faux QR shimmer
-                Image(systemName: "qrcode")
-                    .font(.system(size: 120, weight: .regular))
-                    .foregroundStyle(Theme.inkTertiary.opacity(0.35))
+                // The live camera when we have one; otherwise a quiet placeholder plus the
+                // reason, so the manual path below reads as the intended route rather than
+                // a workaround for something broken.
+                if scan == .ready {
+                    QRScannerView { code in handleScanned(code) }
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: scan == .denied ? "video.slash" : "qrcode")
+                            .font(.system(size: 76, weight: .regular))
+                            .foregroundStyle(Theme.inkTertiary.opacity(0.45))
+                        Text(scanHint).font(.slate(14))
+                            .foregroundStyle(Theme.inkSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 28)
+                    }
+                }
                 // Fixed light stroke: the camera well is near-black in BOTH schemes,
                 // so scheme-flipping ink would vanish in light mode.
                 ReticleCorners()
                     .stroke(Color.white.opacity(0.85), style: .init(lineWidth: 3, lineCap: .round))
                     .frame(width: 210, height: 210)
-                Rectangle().fill(Theme.ok.opacity(0.8)).frame(width: 200, height: 2)
-                    .offset(y: sweep ? 100 : -100)
-                    .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: sweep)
+                if scan != .ready {
+                    Rectangle().fill(Color.white.opacity(0.55)).frame(width: 200, height: 2)
+                        .offset(y: sweep ? 100 : -100)
+                        .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: sweep)
+                }
             }
             .frame(height: 320)
             .padding(.horizontal, 24)
             .onAppear { sweep = true }
+            .task {
+                scan = ScanAvailability.current()
+                if scan == .needsPermission { scan = await ScanAvailability.request() }
+            }
 
             Text("Point at the QR code in Slate →\nSettings → Remote on your Mac.")
                 .font(.slate(15)).foregroundStyle(Theme.inkSecondary)
@@ -162,17 +184,27 @@ struct QRScanView: View {
             // pairing code is how we pair (and the same code the QR encodes).
             PrimaryButton(title: "Enter code", icon: "keyboard") { app.onboarding = .entering }
                 .padding(.horizontal, 24)
-            // Concept-build shortcuts (demo mode — no real Mac).
-            HStack(spacing: 18) {
-                Button("Simulate scan (demo)") { app.onboarding = .pairing }
-                Button("Expired code (demo)") {
-                    app.pairingFailed = true; app.onboarding = .pairing
-                }
-            }
-            .font(.slate(14)).foregroundStyle(Theme.inkTertiary)
-            .padding(.top, 14).padding(.bottom, 8)
         }
         .padding(.bottom, 24)
+    }
+
+    private var scanHint: String {
+        switch scan {
+        case .ready: ""
+        case .needsPermission: "Asking for camera access…"
+        case .denied: "Camera access is off. Turn it on in Settings, or enter the code below."
+        case .unsupported: "This device has no scanner. Enter the code below."
+        }
+    }
+
+    /// A scanned QR carries the same payload the "Enter code" field takes, so both paths land
+    /// in exactly one place.
+    private func handleScanned(_ code: String) {
+        guard let payload = PairingPayload(code: code) else {
+            app.failPairingUnreadable()
+            return
+        }
+        app.beginPairing(with: payload)
     }
 }
 
@@ -227,6 +259,15 @@ struct EnterCodeView: View {
                 .overlay(SlateShape(radius: 14).strokeBorder(Theme.hairline, lineWidth: 1))
                 .padding(.horizontal, 24).padding(.top, 22)
 
+            if UIPasteboard.general.hasStrings {
+                Button {
+                    code = UIPasteboard.general.string ?? ""
+                } label: {
+                    Label("Paste", systemImage: "doc.on.clipboard").font(.slate(15, .medium))
+                }
+                .buttonStyle(.plain).foregroundStyle(Theme.ink)
+                .padding(.top, 14)
+            }
             Spacer()
             PrimaryButton(title: "Connect", icon: "link", fill: trimmed.isEmpty ? Theme.inkTertiary : nil) {
                 attempt()
@@ -241,14 +282,13 @@ struct EnterCodeView: View {
 
     private func attempt() {
         guard let payload = PairingPayload(code: trimmed) else {
-            // Bad / expired / rotated code → the existing recovery screen.
-            app.pairingFailed = true
-            app.onboarding = .pairing
+            app.failPairingUnreadable()
             return
         }
-        // Live: connect flips the app into MainView, where the status banner
-        // reflects the real link coming up (Connecting… → Connected).
-        app.connect(using: payload)
+        // The code is only syntactically valid at this point. `beginPairing` holds the user on
+        // the progress screen until the Mac actually completes the handshake, and routes a
+        // stale or rotated code to the same recovery a malformed one gets.
+        app.beginPairing(with: payload)
     }
 }
 
@@ -267,9 +307,12 @@ struct ReticleCorners: Shape {
 
 // MARK: - Pairing progress / result
 
+/// Shown while the handshake is actually in flight. It used to declare success on a 1.4-second
+/// timer regardless of what the Mac did, which is why a stale-but-well-formed code sailed
+/// through to a permanently disconnected app. The outcome now comes from `AppState`: either the
+/// link reaches ready, or the attempt times out into the recovery screen below.
 struct PairingProgressView: View {
     @Environment(AppState.self) private var app
-    @State private var progressed = false
     var body: some View {
         Group {
             if app.pairingFailed {
@@ -280,44 +323,75 @@ struct PairingProgressView: View {
                     ProgressView().controlSize(.large).tint(Theme.ink)
                     Text("Establishing a secure link…")
                         .font(.slate(19, .medium)).foregroundStyle(Theme.ink)
-                    Text("Verifying the pairing key and pinning your Mac’s certificate.")
+                    Text(detail)
                         .font(.slate(15)).foregroundStyle(Theme.inkSecondary)
                         .multilineTextAlignment(.center).padding(.horizontal, 36)
+                        .contentTransition(.opacity)
+                        .animation(.smooth(duration: 0.25), value: detail)
                     Spacer()
-                }
-                .task {
-                    try? await Task.sleep(for: .seconds(1.4))
-                    if !progressed { progressed = true; app.onboarding = .paired }
                 }
             }
         }
     }
+
+    /// Narrate the real phase. "Looking for your Mac" and "checking the key" fail for very
+    /// different reasons, and saying which one we are on turns a dead wait into a diagnosis.
+    private var detail: String {
+        switch app.client.phase {
+        case .idle, .browsing: "Looking for your Mac on this network."
+        case .connecting:      "Verifying the pairing key."
+        case .ready:           "Connected."
+        case .offline:         "Still trying. Check that both devices are on the same Wi-Fi."
+        }
+    }
 }
 
+/// Pairing recovery.
+///
+/// This screen used to say "That code expired" for every failure. Slate's pairing codes do not
+/// expire — they change only when the owner revokes the pairing — so the one explanation it
+/// offered was wrong for both of the cases that actually reach it.
 struct ExpiredQRView: View {
     @Environment(AppState.self) private var app
+
+    private var title: String {
+        app.pairingFailure == .unreadableCode ? "That is not a Slate code" : "Couldn't reach your Mac"
+    }
+    private var detail: String {
+        switch app.pairingFailure {
+        case .unreadableCode:
+            "Scan the QR in Slate on your Mac, under Settings → Remote, or paste the code printed under it."
+        default:
+            "The code is fine, but no Mac answered. Check that Slate is open, that Remote is switched on, and that both devices are on the same Wi-Fi."
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
             ZStack {
                 Circle().fill(Theme.danger.opacity(0.12)).frame(width: 96, height: 96)
-                Image(systemName: "qrcode.viewfinder").font(.system(size: 40))
+                Image(systemName: app.pairingFailure == .unreadableCode ? "qrcode.viewfinder" : "wifi.exclamationmark")
+                    .font(.system(size: 40))
                     .foregroundStyle(Theme.danger)
             }
-            Text("That code expired")
-                .font(.slate(26, .medium)).foregroundStyle(Theme.ink).padding(.top, 22)
-            Text("Pairing codes rotate for security. Open Slate → Settings → Remote on your Mac for a fresh one, then scan again.")
+            Text(title)
+                .font(.slate(26, .medium)).foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.center).padding(.top, 22).padding(.horizontal, 24)
+            Text(detail)
                 .font(.slate(16)).foregroundStyle(Theme.inkSecondary)
                 .multilineTextAlignment(.center).lineSpacing(3)
                 .padding(.top, 12).padding(.horizontal, 28)
             Spacer()
-            PrimaryButton(title: "Scan again", icon: "qrcode.viewfinder") {
-                app.pairingFailed = false; app.onboarding = .scanning
+            PrimaryButton(title: "Try again", icon: "qrcode.viewfinder") {
+                app.pairingFailure = nil; app.onboarding = .scanning
             }
             .padding(.horizontal, 24)
-            Button("Back") { app.pairingFailed = false; app.onboarding = .welcome }
-                .font(.slate(16)).foregroundStyle(Theme.inkSecondary)
-                .padding(.top, 14).padding(.bottom, 8)
+            Button("Enter the code instead") {
+                app.pairingFailure = nil; app.onboarding = .entering
+            }
+            .font(.slate(16)).foregroundStyle(Theme.inkSecondary)
+            .padding(.top, 14).padding(.bottom, 8)
         }
         .padding(.bottom, 24)
     }

@@ -21,11 +21,20 @@ final class RemoteClient {
     private(set) var phase: Phase = .idle
     private(set) var models: [ModelInfo] = []
     private(set) var macName = ""
+    /// Wire version the paired Mac speaks. 1 until it tells us otherwise, so an older Mac
+    /// simply never sees a v2 request.
+    private(set) var macProto = 1
+    /// True when the Mac can serve conversation browsing, attachments and the other surfaces.
+    var supportsV2: Bool { macProto >= 2 }
 
     /// Streaming callbacks the chat layer subscribes to.
     var onToken: (@MainActor (UUID, String) -> Void)?
     var onTool: (@MainActor (UUID, String, ToolPhase) -> Void)?
     var onDone: (@MainActor (UUID) -> Void)?
+    var onConversations: (@MainActor ([ConversationSummary]) -> Void)?
+    var onHistory: (@MainActor (String, [HistoryItem]) -> Void)?
+    var onSpeaker: (@MainActor (UUID, String, Int) -> Void)?
+    var onImage: (@MainActor (String, Data) -> Void)?
     var onError: (@MainActor (UUID, RunErrorKind, String) -> Void)?
     var onLocked: (@MainActor (UUID, String) -> Void)?
 
@@ -44,6 +53,16 @@ final class RemoteClient {
         psk = pairing.psk; macName = pairing.name
         wantConnected = true
         startBrowsing()
+    }
+
+    /// Try again right now, instead of waiting out the backoff. This is what the status
+    /// banner's button is for: a user who has just woken their Mac should not have to sit
+    /// through a retry timer that started before they did anything.
+    func retryNow() {
+        guard wantConnected else { return }
+        retryTask?.cancel(); retryTask = nil
+        timeoutTask?.cancel()
+        if let ep = lastEndpoint { open(to: ep) } else { startBrowsing() }
     }
 
     /// Tear everything down (used before re-pairing, or when leaving live mode).
@@ -134,8 +153,28 @@ final class RemoteClient {
 
     // MARK: Send / receive
 
-    func prompt(id: UUID, model: String, text: String) { send(.prompt(id: id, model: model, text: text)) }
+    /// Attachments are only sent to a Mac that speaks v2; an older one would ignore the key
+    /// and silently answer without them, which would look like the feature is broken.
+    func prompt(id: UUID, model: String, text: String, attachments: [Attachment] = []) {
+        send(.prompt(id: id, model: model, text: text,
+                     attachments: supportsV2 ? attachments : []))
+    }
     func stop(id: UUID) { send(.stop(id: id)) }
+
+    /// Browsing the Mac's own conversations. Guarded on the peer's version: a v1 Mac decodes
+    /// these as unknown and drops them, so the phone would wait on a reply that never comes.
+    func listConversations(kind: ConversationKind?) {
+        guard supportsV2 else { return }
+        send(.listConversations(kind: kind))
+    }
+    func openConversation(id: String) {
+        guard supportsV2 else { return }
+        send(.openConversation(id: id))
+    }
+    func fetchImage(imageID: String) {
+        guard supportsV2 else { return }
+        send(.fetchImage(imageID: imageID))
+    }
 
     private func send(_ msg: ClientMessage) {
         guard let conn = connection, let text = try? RemoteCodec.encode(msg) else { return }
@@ -156,12 +195,21 @@ final class RemoteClient {
 
     private func dispatch(_ msg: ServerMessage) {
         switch msg {
-        case let .models(items, mac): models = items; macName = mac
+        case let .models(items, mac, proto):
+            models = items; macName = mac
+            // Absent on a v1 Mac. The UI uses this to hide anything the peer cannot serve.
+            macProto = proto ?? 1
         case let .token(id, s): onToken?(id, s)
         case let .tool(id, name, phase): onTool?(id, name, phase)
         case let .done(id): onDone?(id)
         case let .error(id, kind, m): onError?(id, kind, m)
         case let .locked(id, feature): onLocked?(id, feature)
+        // v2 surfaces. Wired up as each screen lands; ignoring them keeps the client
+        // forward compatible with a newer Mac instead of dropping the connection.
+        case let .conversations(items): onConversations?(items)
+        case let .history(id, items): onHistory?(id, items)
+        case let .speaker(id, name, index): onSpeaker?(id, name, index)
+        case let .image(imageID, data): onImage?(imageID, data)
         }
     }
 }

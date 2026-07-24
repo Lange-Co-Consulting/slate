@@ -47,7 +47,6 @@ struct StatesGalleryView: View {
         .canvas()
         .navigationTitle("Edge states")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.washedCanvas(pal, scheme), for: .navigationBar)
     }
 
     private func statusPreview(_ s: MacStatus) -> some View {

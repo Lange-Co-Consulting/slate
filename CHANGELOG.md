@@ -3,11 +3,10 @@
 All notable user-facing changes to Slate are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [1.0.0] - unreleased
+## [1.0.0] - 2026-07-24
 
 Slate leaves beta. This is the first release signed with an Apple Developer ID and
-notarized by Apple. _Prepared, not yet published — the current download is 0.1.1;
-see the Releases page._
+notarized by Apple.
 
 ### Added
 
