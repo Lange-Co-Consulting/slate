@@ -144,6 +144,7 @@ struct ImageSectionView: View {
             .headerChip()
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help("Switch image model")
     }
 
     private var ramGauge: some View { RAMChip(ram: model.ram) }
@@ -156,6 +157,7 @@ struct ImageSectionView: View {
                 .frame(width: 26, height: 26).contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).foregroundStyle(.secondary).fixedSize()
+        .help("More")
     }
 
     // MARK: Composer
@@ -176,6 +178,7 @@ struct ImageSectionView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button { model.imageError = nil } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(.tertiary)
+                        .help("Dismiss")
                         .accessibilityLabel("Dismiss error")
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
@@ -208,6 +211,7 @@ struct ImageSectionView: View {
                         .background(Circle().fill(.primary.opacity(canGenerate ? 1 : 0.25)))
                 }
                 .buttonStyle(.plain).disabled(!canGenerate).liquidHover(1.08)
+                .help(busyHere ? "Generating\u{2026}" : "Generate image (\u{21A9})")
                 .accessibilityLabel(busyHere ? "Generating" : "Generate image")
             }
         }

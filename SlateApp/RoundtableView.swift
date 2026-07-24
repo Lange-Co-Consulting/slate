@@ -426,6 +426,7 @@ struct RoundtableSetup: View {
     private func seatRow(index i: Int, seat: Binding<SeatDraft>) -> some View {
         HStack(spacing: 11) {
             Image(systemName: "line.3.horizontal")
+                .help("Drag to reorder seats — seat 1 speaks first and writes the synthesis")
                 .font(.caption).foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
             Circle().fill(SpeakerStyle.color(i, scheme: scheme))
@@ -483,6 +484,7 @@ struct RoundtableSetup: View {
         } label: {
             Label("Add participant", systemImage: "plus.circle")
                 .font(.callout.weight(.medium))
+                .help("Add another model to the table — the same model may take more than one seat")
         }
         .menuStyle(.button)
         .buttonStyle(.bordered)

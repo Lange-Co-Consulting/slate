@@ -892,6 +892,8 @@ final class AppModel {
     private func buildRoundtable(refs: [String], personas: [String], force: Bool) async
         -> (roster: [RoundtableParticipant], engines: [String: any LLMEngine], error: String?, unloaded: URL?, ramRefusal: Bool) {
         var unloaded: URL?
+        /// The chat model that is ALSO a seat: reused instead of evicted+reloaded.
+        var residentSeatRef: String?
         let localRefs = refs.filter { isLocalRef($0) }
         if !localRefs.isEmpty {
             // Dedupe by DISTINCT ref: a second seat on the same model reuses the one
@@ -920,21 +922,35 @@ final class AppModel {
                 // lets the caller offer a "Try anyway" override.
                 return ([], [:], String(format: "These models need about %.0f GB together, but only ~%.0f GB is free. Pick smaller models or fewer seats.", neededGB, freeGB), nil, true)
             }
-            // Cleared the guard → free the resident chat engine (deinit frees
-            // model + ctx) to make the room real before loading the seats. Remember
-            // what we unloaded so an aborted roundtable can put it back.
-            unloaded = activeModelURL
-            engine?.requestStop()
-            engine = nil
-            loadEpoch += 1        // invalidate any in-flight load: it must NOT reinstall
-            pendingTurn = nil
-            activeModelURL = nil
-            usingCloud = false
-            activeCloudProviderID = nil
+            // Reuse the resident chat engine when it already serves a seat (the same
+            // pattern AutomationRunner uses): no cold multi-GB reload, and the user's
+            // chat model simply stays loaded instead of being evicted and restored.
+            residentSeatRef = (!usingCloud && isModelLoaded) ? activeModelURL?.path : nil
+            let residentIsSeated = residentSeatRef.map { localRefs.contains($0) } ?? false
+            if !residentIsSeated {
+                residentSeatRef = nil
+                // Cleared the guard → free the resident chat engine (deinit frees
+                // model + ctx) to make the room real before loading the seats. Remember
+                // what we unloaded so an aborted roundtable can put it back.
+                unloaded = activeModelURL
+                engine?.requestStop()
+                engine = nil
+                loadEpoch += 1    // invalidate any in-flight load: it must NOT reinstall
+                pendingTurn = nil
+                activeModelURL = nil
+                usingCloud = false
+                activeCloudProviderID = nil
+            }
         }
         var roster: [RoundtableParticipant] = []
         var engines: [String: any LLMEngine] = [:]
         var engineName: [String: String] = [:]   // per-ref display name, for the roster pass
+        // Seed the pool with the chat engine when it holds a seat, so the loop below
+        // (`where engines[ref] == nil`) never rebuilds it.
+        if let r = residentSeatRef, let e = residentEngine(forRef: r) {
+            engines[r] = e
+            engineName[r] = SidebarView.pretty(URL(fileURLWithPath: r).lastPathComponent)
+        }
         // 1) Build the engine POOL over DISTINCT refs only: several seats can share
         //    the same model, and a duplicate reuses the one engine (no extra weight
         //    or KV cache).
@@ -1694,8 +1710,10 @@ final class AppModel {
         var list: [RoundtableCandidate] = []
         for m in models {
             let gb = Double(m.bytes) / 1_073_741_824
+            let sizeText = gb > 0 ? String(format: "%.1f GB", gb) : "local"
+            let qual = ModelName.qualifier(m.name)
             list.append(RoundtableCandidate(ref: m.url.path, name: SidebarView.pretty(m.name),
-                                            detail: gb > 0 ? String(format: "%.1f GB", gb) : "local",
+                                            detail: qual.isEmpty ? sizeText : "\(sizeText)  ·  \(qual)",
                                             sizeGB: gb, isLocal: true))
         }
         if settings.cloudEnabled, !settings.silentModeEnabled {

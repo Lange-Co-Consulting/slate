@@ -282,6 +282,17 @@ struct SidebarView: View {
         return base.filter { $0.title.localizedCaseInsensitiveContains(search) }
     }
 
+    /// Header over the conversation list, so the rows read as the SELECTED section's
+    /// children rather than as louder peers of the nav rows above them.
+    private var listSectionTitle: String {
+        switch tab {
+        case .chat:   return "Chats"
+        case .code:   return "Code sessions"
+        case .image:  return "Images"
+        case .agents: return "Roundtables"
+        }
+    }
+
     private var emptyListLabel: String {
         if !search.isEmpty { return "No matches" }
         switch tab {
@@ -345,13 +356,17 @@ struct SidebarView: View {
             // native than a cramped horizontal segmented pill, and it scales as
             // modes are added.
             VStack(spacing: 2) {
-                navRow(.chat, "Chats", "bubble.left.and.bubble.right")
+                navRow(.chat, "Chats", "bubble.left.and.bubble.right",
+                       tip: "Your chats — this section's conversations are listed below")
                 navRow(.code, "Code", "chevron.left.forwardslash.chevron.right", pro: .codeEdits,
-                       hint: "Free: Ask mode, you approve each change. Pro: Edits & Auto for hands-off editing.")
+                       hint: "Free: Ask mode, you approve each change. Pro: Edits & Auto for hands-off editing.",
+                       tip: "Code sessions with a project folder — your sessions are listed below")
                 navRow(.image, "Image", "photo", pro: .imageGeneration,
-                       hint: "Local image generation is a Pro feature.")
+                       hint: "Local image generation is a Pro feature.",
+                       tip: "Image generation — your image sessions are listed below")
                 navRow(.agents, "Roundtable", "person.3", pro: .modelCompare,
-                       hint: "Free: 2 models. Pro: as many models as you want, plus a closing synthesis.")
+                       hint: "Free: 2 models. Pro: as many models as you want, plus a closing synthesis.",
+                       tip: "Roundtable: several models discuss a topic — your roundtables are listed below")
                 automationsNavRow
             }
             .padding(.horizontal, 8).padding(.top, 8)
@@ -392,8 +407,9 @@ struct SidebarView: View {
                         Section("Recent") { ForEach(others) { row($0) } }
                     }
                 } else {
-                    // No pinned items → no section chrome at all, just the rows.
-                    ForEach(others) { row($0) }
+                    // Always give the rows a header: without it they read as peers of
+                    // the nav rows above instead of as that section's contents.
+                    Section(listSectionTitle) { ForEach(others) { row($0) } }
                 }
             }
             .listStyle(.sidebar)
@@ -471,7 +487,7 @@ struct SidebarView: View {
     /// One row of the vertical mode nav: icon + label, full width, with a quiet
     /// selection highlight (the Mail / Notes source-list pattern).
     private func navRow(_ k: Conversation.Kind, _ label: String, _ icon: String,
-                        pro: SlateCapability? = nil, hint: String = "") -> some View {
+                        pro: SlateCapability? = nil, hint: String = "", tip: String = "") -> some View {
         let selected = tab == k && !model.showingAutomations
         // A PRO tag on features the current user can't fully use, so Pro is visible
         // up front instead of only being discovered via the upsell on first use.
@@ -505,7 +521,7 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help(locked && !hint.isEmpty ? hint : label)
+        .help(locked && !hint.isEmpty ? hint : (tip.isEmpty ? label : tip))
         .accessibilityLabel(locked ? "\(label), Pro feature" : label)
         .accessibilityHint(locked ? hint : "")
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -543,7 +559,7 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help("Automations")
+        .help("Scheduled prompts that run on their own")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -758,7 +774,7 @@ struct ConversationRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(conversation.title).lineLimit(1)
+                Text(conversation.title).font(.callout).lineLimit(1)
                 Text(subtitle).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
@@ -774,6 +790,7 @@ struct ConversationRow: View {
             }
         }
         .padding(.vertical, 2)
+        .padding(.leading, 10)     // read as a child of the selected nav section
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture(count: 2) { onRename() }

@@ -35,6 +35,14 @@ see the Releases page._
 - **The memory guard sizes split models correctly.** A multi-part model was measured by
   its first part only, so a very large one could slip past the check that stops your Mac
   from freezing.
+- **Models you can tell apart.** Rows now show the part of the filename that was being
+  thrown away — quantisation, revision, variant — plus which store the file came from,
+  so two quants of the same model are no longer two identical-looking lines.
+- **Tooltips on the buttons that were missing them**, including the chat send button.
+- **The sidebar reads as a hierarchy again.** A section's conversations sit under a
+  header, indented, instead of looking like louder siblings of the sections above.
+- **Seating the model you already have loaded no longer reloads it** — the roundtable
+  reuses it instead of freeing several GB and reading the same file back from disk.
 - **Full-width chat now applies to roundtables too** — the synthesis card and topic
   header used to stay narrow even with the setting on.
 - **Roundtable seats are tellable apart.** A seat's persona is now part of its speaker

@@ -348,6 +348,8 @@ struct ReasoningBlock: View {
                         .font(.caption2.weight(.semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                     Label(streaming ? "Thinking…" : "Thoughts", systemImage: "brain")
+                        .help(streaming ? "The model's reasoning while it works — not part of the answer"
+                                        : "The model's reasoning — not part of the answer")
                         .font(.caption.weight(.medium))
                 }
                 .foregroundStyle(.secondary)

@@ -479,8 +479,13 @@ struct ModelsView: View {
                 .foregroundStyle(m.url == model.activeModelURL ? Color.primary : .secondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(SidebarView.pretty(m.name)).font(.callout)
-                Text(ByteCountFormatter.string(fromByteCount: m.bytes, countStyle: .file))
-                    .font(.caption2).foregroundStyle(.secondary)
+                // pretty() drops quant/revision, so two files can render identically.
+                // Show the tail it discards plus where the file lives.
+                Text([ByteCountFormatter.string(fromByteCount: m.bytes, countStyle: .file),
+                      ModelName.qualifier(m.name),
+                      ModelCatalog.sourceLabel(for: m.url)]
+                     .filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
             fitBadge(bytes: m.bytes)

@@ -277,6 +277,7 @@ struct ConversationView: View {
                     .buttonStyle(.plain)
                     .disabled(!canStartTopic)
                     .liquidHover(1.08)
+                    .help("Start the discussion on this topic")
                     .accessibilityLabel("Start discussion")
                 }
             }
@@ -731,9 +732,11 @@ struct ConversationView: View {
                 Button {
                     if m.url != model.activeModelURL || model.usingCloud { model.pickLocalModel(m.url) }
                 } label: {
-                    Label(SidebarView.pretty(m.name),
+                    let q = ModelName.qualifier(m.name)
+                    Label(q.isEmpty ? SidebarView.pretty(m.name) : "\(SidebarView.pretty(m.name))  ·  \(q)",
                           systemImage: (m.url == model.activeModelURL && !model.usingCloud) ? "checkmark" : "cpu")
                 }
+                .help(m.name)
             }
             Divider()
             Button("Manage models…") { model.showModelManager = true }
@@ -1472,6 +1475,7 @@ struct ConversationView: View {
                         .disabled(!busyHere && !canSend)
                         .liquidHover(1.08)
                         .animation(.smooth(duration: 0.2), value: busyHere)
+                        .help(busyHere ? "Stop generating" : "Send message (\u{21A9})")
                         .accessibilityLabel(busyHere ? "Stop generating" : "Send message")
                     }
                 }
@@ -1532,7 +1536,10 @@ struct ConversationView: View {
                         Text(url.lastPathComponent).font(.caption).lineLimit(1)
                         Button { attachedContextFiles.removeAll { $0 == url } } label: {
                             Image(systemName: "xmark.circle.fill")
-                        }.buttonStyle(.plain).foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.tertiary)
+                        .help("Remove \(url.lastPathComponent) from the prompt")
+                        .accessibilityLabel("Remove \(url.lastPathComponent)")
                     }
                     .padding(.horizontal, 9).padding(.vertical, 5)
                     .glassPill()

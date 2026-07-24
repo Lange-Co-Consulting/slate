@@ -254,9 +254,11 @@ struct DownloadsView: View {
                     .foregroundStyle(isActive ? Color.primary : .secondary)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(SidebarView.pretty(m.name)).font(.callout).lineLimit(1).truncationMode(.middle)
-                    if m.bytes > 0 {
-                        Text(bytes(m.bytes)).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                    }
+                    Text([m.bytes > 0 ? bytes(m.bytes) : "",
+                          ModelName.qualifier(m.name),
+                          ModelCatalog.sourceLabel(for: m.url)]
+                         .filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 FitDot(bytes: m.bytes, ram: ram, showLabel: true)
