@@ -77,7 +77,9 @@ struct RoundtableSeatOrb: View {
 struct RoundtableSeatRail: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let refs: [String]
+    /// One entry per SEAT (in order): the model ref + its persona. Two seats on the
+    /// same model are distinct entries, disambiguated in `labels`.
+    let seats: [(ref: String, persona: String)]
     let activeSeat: Int?      // 0-based seat currently speaking, or nil
     let synthesizing: Bool    // the closing synthesis turn is streaming
     /// true when the rail lives inside the merged agent header (no own glass).
@@ -85,6 +87,25 @@ struct RoundtableSeatRail: View {
     /// Live round progress while the roundtable runs (nil when idle/synthesis).
     var round: Int? = nil
     var totalRounds: Int = 0
+
+    /// Per-seat label: the model name, plus its persona when set. Two seats that
+    /// would otherwise read identically (same model, no persona) get a trailing
+    /// counter so the rail never shows two indistinguishable names.
+    private var labels: [String] {
+        var base = seats.map { s -> String in
+            let name = SpeakerStyle.seatName(s.ref)
+            let p = s.persona.trimmingCharacters(in: .whitespacesAndNewlines)
+            return p.isEmpty ? name : "\(name) · \(p)"
+        }
+        var counts: [String: Int] = [:]
+        for l in base { counts[l, default: 0] += 1 }
+        var seen: [String: Int] = [:]
+        for i in base.indices where (counts[base[i]] ?? 0) > 1 {
+            seen[base[i], default: 0] += 1
+            base[i] = "\(base[i]) \(seen[base[i]] ?? 1)"
+        }
+        return base
+    }
 
     @ViewBuilder
     var body: some View {
@@ -98,12 +119,13 @@ struct RoundtableSeatRail: View {
     }
 
     private var core: some View {
-        HStack(spacing: 12) {
-            ForEach(Array(refs.enumerated()), id: \.offset) { i, ref in
+        let labels = labels
+        return HStack(spacing: 12) {
+            ForEach(Array(seats.enumerated()), id: \.offset) { i, _ in
                 let active = activeSeat == i
                 HStack(spacing: 7) {
                     RoundtableSeatOrb(color: SpeakerStyle.aura(i, scheme: scheme), active: active, reduceMotion: reduceMotion)
-                    Text(SpeakerStyle.seatName(ref))
+                    Text(i < labels.count ? labels[i] : "")
                         .font(.caption.weight(active ? .semibold : .regular))
                         .foregroundStyle(active ? Color.primary : .secondary)
                         .lineLimit(1)
@@ -111,7 +133,7 @@ struct RoundtableSeatRail: View {
                 // Dim the seats that aren't speaking while someone is; all equal at rest.
                 .opacity((activeSeat == nil && !synthesizing) || active ? 1 : 0.5)
                 .animation(.smooth(duration: 0.3), value: activeSeat)
-                if i < refs.count - 1 {
+                if i < seats.count - 1 {
                     Image(systemName: "circle.fill").font(.system(size: 3)).foregroundStyle(.quaternary)
                 }
             }
@@ -133,7 +155,7 @@ struct RoundtableSeatRail: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Roundtable seats: \(refs.map(SpeakerStyle.seatName).joined(separator: ", "))")
+        .accessibilityLabel("Roundtable seats: \(labels.joined(separator: ", "))")
     }
 }
 
@@ -222,8 +244,11 @@ struct RoundtableSetup: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
 
-    @State private var selected: [String]           // model refs, in seat order
-    @State private var personas: [String: String]
+    /// One drafted seat. `id` is a stable per-seat identity (NOT the model ref) so
+    /// two seats on the same model stay distinct rows and reorder cleanly.
+    struct SeatDraft: Identifiable { let id = UUID(); var ref: String; var persona: String }
+
+    @State private var seats: [SeatDraft]            // the table, in seat order
     @State private var rounds: Int
     @State private var synthesis: Bool
     @State private var topic: String = ""
@@ -232,14 +257,14 @@ struct RoundtableSetup: View {
         self.convo = convo
         self.isSheet = isSheet
         self.onDone = onDone
-        _selected = State(initialValue: convo.agentModels)
         _rounds = State(initialValue: convo.agentRounds < 1 ? 3 : convo.agentRounds)
         _synthesis = State(initialValue: convo.agentSynthesis)
-        var p: [String: String] = [:]
-        for (i, ref) in convo.agentModels.enumerated() where i < convo.agentPersonas.count {
-            p[ref] = convo.agentPersonas[i]
+        // Zip the persisted parallel arrays into ordered seats (duplicates kept).
+        var s: [SeatDraft] = []
+        for (i, ref) in convo.agentModels.enumerated() {
+            s.append(SeatDraft(ref: ref, persona: i < convo.agentPersonas.count ? convo.agentPersonas[i] : ""))
         }
-        _personas = State(initialValue: p)
+        _seats = State(initialValue: s)
     }
 
     private var candidates: [RoundtableCandidate] { model.roundtableCandidates }
@@ -249,7 +274,7 @@ struct RoundtableSetup: View {
     /// real guard. Free is capped at 2.
     private var unlimitedSeats: Bool { modelCap == .max }
     private var synthesisAllowed: Bool { model.pro.roundtableSynthesisAllowed }
-    private var canProceed: Bool { selected.count >= 2 && selected.count <= modelCap }
+    private var canProceed: Bool { seats.count >= 2 && (unlimitedSeats || seats.count <= modelCap) }
     private var canStart: Bool {
         canProceed && !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !model.isGenerating && !model.roundtableActive
@@ -261,7 +286,7 @@ struct RoundtableSetup: View {
                 VStack(alignment: .leading, spacing: 22) {
                     if !isSheet { intro; howItWorks }
                     participants
-                    if !candidates.filter(\.isLocal).isEmpty || !selected.isEmpty { ramReadout }
+                    if !candidates.filter(\.isLocal).isEmpty || !seats.isEmpty { ramReadout }
                     rounds_
                     Toggle(isOn: Binding(
                         get: { synthesis && synthesisAllowed },
@@ -298,7 +323,7 @@ struct RoundtableSetup: View {
         .onAppear {
             // Align a Pro-authored config down to the Free tier when opened by a
             // Free user (e.g. after a licence lapses): trim extra seats + synthesis.
-            if selected.count > modelCap { selected = Array(selected.prefix(modelCap)) }
+            if seats.count > modelCap { seats = Array(seats.prefix(modelCap)) }
             if !synthesisAllowed { synthesis = false }
         }
     }
@@ -343,35 +368,117 @@ struct RoundtableSetup: View {
         }
     }
 
+    /// The table: an ordered list of seats (duplicates allowed), each with a colour
+    /// dot, seat number, model name, an inline persona field and a remove button;
+    /// plus an "Add participant" menu that appends another seat.
     private var participants: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Participants").font(.headline)
+                Text("Your table").font(.headline)
                 Spacer()
-                Text(unlimitedSeats ? "\(selected.count)" : "\(selected.count)/\(modelCap)")
+                Text(unlimitedSeats ? "\(seats.count)" : "\(seats.count)/\(modelCap)")
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             if candidates.isEmpty {
                 emptyCandidates
             } else {
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(groupedCandidates, id: \.label) { group in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 6) {
-                                Text(group.label.uppercased())
-                                    .font(.caption2.weight(.semibold)).tracking(1.2)
-                                Text(group.hint).font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .foregroundStyle(.secondary)
-                            VStack(spacing: 8) {
-                                ForEach(group.items) { c in candidateRow(c) }
-                            }
+                seatList
+                addParticipant
+            }
+        }
+    }
+
+    /// Per-seat height for the reorderable list (row content + row insets).
+    private let seatRowHeight: CGFloat = 62
+
+    @ViewBuilder
+    private var seatList: some View {
+        if seats.isEmpty {
+            Text("No participants yet - add at least two models below (the same model may take more than one seat).")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 6)
+        } else {
+            List {
+                ForEach($seats) { $seat in
+                    let i = seats.firstIndex(where: { $0.id == seat.id }) ?? 0
+                    seatRow(index: i, seat: $seat)
+                        .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                }
+                .onMove { from, to in seats.move(fromOffsets: from, toOffset: to) }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDisabled(true)
+            .frame(height: max(1, CGFloat(seats.count)) * seatRowHeight)
+        }
+    }
+
+    @ViewBuilder
+    private func seatRow(index i: Int, seat: Binding<SeatDraft>) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: "line.3.horizontal")
+                .font(.caption).foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+            Circle().fill(SpeakerStyle.color(i, scheme: scheme))
+                .frame(width: 11, height: 11)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Seat \(i + 1)").font(.caption2.weight(.semibold))
+                    .foregroundStyle(SpeakerStyle.color(i, scheme: scheme))
+                Text(seatModelName(seat.wrappedValue.ref)).font(.callout.weight(.medium)).lineLimit(1)
+            }
+            .frame(width: 148, alignment: .leading)
+            TextField("Optional persona - e.g. \"the skeptic\"", text: seat.persona)
+                .textFieldStyle(.plain)
+                .font(.caption)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityLabel("Seat \(i + 1) persona")
+                .accessibilityHint("Optional role or point of view for this participant")
+            Button {
+                seats.removeAll { $0.id == seat.wrappedValue.id }
+            } label: {
+                Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .help("Remove this seat")
+            .accessibilityLabel("Remove seat \(i + 1)")
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(SpeakerStyle.color(i, scheme: scheme).opacity(scheme == .dark ? 0.12 : 0.08),
+                    in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: DS.R.card, style: .continuous)
+            .strokeBorder(.quaternary, lineWidth: 0.5))
+    }
+
+    /// A menu of every candidate model (grouped by size class); picking one appends
+    /// a seat. Repeats are allowed - the same model can hold several seats.
+    private var addParticipant: some View {
+        Menu {
+            ForEach(groupedCandidates, id: \.label) { group in
+                Section(group.label) {
+                    ForEach(group.items) { c in
+                        Button {
+                            addSeat(c.ref)
+                        } label: {
+                            Text(c.isLocal ? "\(c.name)  ·  \(c.detail)" : "\(c.name)  ·  Cloud")
                         }
                     }
                 }
             }
+        } label: {
+            Label("Add participant", systemImage: "plus.circle")
+                .font(.callout.weight(.medium))
         }
+        .menuStyle(.button)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .tint(.primary)
+        .fixedSize()
+        .accessibilityLabel("Add a participant to the table")
     }
 
     /// Group the models by rough size class so it's obvious which will run several
@@ -404,61 +511,18 @@ struct RoundtableSetup: View {
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
     }
 
-    @ViewBuilder
-    private func candidateRow(_ c: RoundtableCandidate) -> some View {
-        let seat = selected.firstIndex(of: c.ref)
-        let isOn = seat != nil
-        let full = !isOn && !unlimitedSeats && selected.count >= 3
-        VStack(alignment: .leading, spacing: 8) {
-            Button { toggle(c.ref) } label: {
-                HStack(spacing: 11) {
-                    Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 18))
-                        .foregroundStyle(isOn ? (seat.map { SpeakerStyle.color($0, scheme: scheme) } ?? .accentColor) : Color.secondary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(c.name).font(.callout.weight(.medium)).lineLimit(1)
-                        Text(c.isLocal ? c.detail : "Runs in the cloud")
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 8)
-                    if let seat {
-                        Text("Seat \(seat + 1)").font(.caption2.weight(.medium))
-                            .foregroundStyle(SpeakerStyle.color(seat, scheme: scheme))
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(full)
-            .opacity(full ? 0.4 : 1)
-
-            if isOn {
-                TextField("Optional persona - e.g. \"the skeptic\", \"the pragmatist\"",
-                          text: personaBinding(c.ref))
-                    .textFieldStyle(.plain)
-                    .font(.caption)
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .padding(.leading, 29)
-                    .accessibilityLabel("\(c.name) persona")
-                    .accessibilityHint("Optional role or point of view for this participant")
-            }
-        }
-        .padding(12)
-        .background((isOn ? (seat.map { SpeakerStyle.color($0, scheme: scheme).opacity(scheme == .dark ? 0.12 : 0.08) } ?? Color.clear) : Color.clear),
-                    in: RoundedRectangle(cornerRadius: DS.R.card, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.R.card, style: .continuous)
-                .strokeBorder(.quaternary, lineWidth: 0.5))
-    }
-
     private var ramReadout: some View {
-        let localSizes = selected.compactMap { ref -> Double? in
+        // Sum the estimate over DISTINCT seat refs: a second seat on the same model
+        // reuses the one loaded engine + KV cache, so a duplicate adds no RAM and
+        // must not be double-counted (that would make the refusal over-eager).
+        var distinctRefs: [String] = []
+        for ref in seats.map(\.ref) where !distinctRefs.contains(ref) { distinctRefs.append(ref) }
+        let localSizes = distinctRefs.compactMap { ref -> Double? in
             guard let candidate = candidates.first(where: { $0.ref == ref }), candidate.isLocal else { return nil }
             return candidate.sizeGB
         }
         let localGB = Roundtable.estimatedLocalMemoryGB(fileSizesGB: localSizes)
-        let localCount = selected.filter { ref in candidates.first(where: { $0.ref == ref })?.isLocal == true }.count
+        let localCount = localSizes.count
         let freeGB = max(0, model.ram.totalGB - model.ram.usedGB) + residentGB
         let tight = localGB > 0 && localGB > freeGB - 2.0
         return HStack(spacing: 8) {
@@ -537,7 +601,11 @@ struct RoundtableSetup: View {
         }
         .padding(.horizontal, isSheet ? 22 : 32)
         .padding(.vertical, 16)
-        .background(.bar)
+        // No opaque `.bar` material — it renders as a jarring white strip on the
+        // light canvas. The footer sits below the ScrollView (no content passes
+        // behind it), so a hairline separator over the shared canvas blends
+        // correctly in both light and dark.
+        .overlay(alignment: .top) { Divider().opacity(0.6) }
     }
 
     // MARK: Helpers
@@ -548,24 +616,25 @@ struct RoundtableSetup: View {
         return Double(sz) / 1_073_741_824
     }
 
-    private func toggle(_ ref: String) {
-        if let i = selected.firstIndex(of: ref) {
-            selected.remove(at: i)
-        } else if selected.count < modelCap {
-            selected.append(ref)
-        } else if selected.count < 3 {
-            // Blocked by the Free 2-seat cap - offer the 3rd seat with Pro.
-            model.requirePro(.agents)
-        }
+    /// Display name for a seat's model ref (falls back to the ref-derived seat name
+    /// if the model was since removed).
+    private func seatModelName(_ ref: String) -> String {
+        candidates.first(where: { $0.ref == ref })?.name ?? SpeakerStyle.seatName(ref)
     }
 
-    private func personaBinding(_ ref: String) -> Binding<String> {
-        Binding(get: { personas[ref] ?? "" }, set: { personas[ref] = $0 })
+    private func addSeat(_ ref: String) {
+        // Free is capped at `modelCap` seats; adding beyond it offers the same Pro
+        // upsell the old seat toggle used. Pro (unlimited) always appends.
+        if !unlimitedSeats && seats.count >= modelCap {
+            model.requirePro(.agents)
+            return
+        }
+        seats.append(SeatDraft(ref: ref, persona: ""))
     }
 
     private func save() {
-        let personaArr = selected.map { personas[$0]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
-        model.setAgentConfig(models: selected, personas: personaArr,
+        model.setAgentConfig(models: seats.map(\.ref),
+                             personas: seats.map { $0.persona.trimmingCharacters(in: .whitespacesAndNewlines) },
                              rounds: rounds, synthesis: synthesis, for: convo.id)
     }
 }

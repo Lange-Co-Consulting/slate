@@ -6,6 +6,7 @@ import SlateCore
 import SlateUI
 import SlateLlama
 import SlateFlowCore
+import SlateRemoteProtocol
 #if SLATE_PRO
 import SlatePro
 #endif
@@ -167,6 +168,22 @@ final class AppModel {
         else { trustedSkillDigests.removeValue(forKey: skill.id) }
     }
     func rescanSkills() { installedSkills = Skills.scan() }
+    /// Delete a skill (moves its folder to the Trash) + drop its trust pin, then rescan.
+    func removeSkill(_ skill: Skill) {
+        Skills.remove(skill)
+        trustedSkillDigests.removeValue(forKey: skill.id)
+        rescanSkills()
+    }
+    /// Find the user's existing Claude skills (~/.claude) not already installed. Off the main actor.
+    func discoverClaudeSkills() async -> [Skills.Discovered] {
+        let existing = Set(installedSkills.map(\.id))
+        return await Task.detached { Skills.discoverClaudeSkills(existing: existing) }.value
+    }
+    /// Import discovered skills by copy, then rescan so they appear (disabled until trusted).
+    func importSkills(_ discovered: [Skills.Discovered]) {
+        for d in discovered { Skills.importSkill(d) }
+        rescanSkills()
+    }
     /// Native in-app updater (the sidebar update pill + Settings controls).
     @ObservationIgnored private(set) lazy var updater = UpdateService(settings: settings)
     /// "Read aloud" for assistant messages (bundled Supertonic-3 TTS).
@@ -245,6 +262,43 @@ final class AppModel {
     /// When set, Settings opens on this tab once (SettingsTab.rawValue), then clears.
     var pendingSettingsTab: String?
 
+    // MARK: - Slate Remote (LAN server)
+
+    /// The Mac-side LAN server (free feature). nil until first started.
+    private(set) var remoteServer: SlateRemoteServer?
+    /// User-facing on/off switch, persisted like any other setting the user flips
+    /// in Settings → Remote. Starting/stopping the listener follows the toggle.
+    var remoteEnabled = false { didSet { remoteEnabled ? startRemote() : stopRemote() } }
+
+    /// The pre-shared key that secures the LAN pairing handshake, kept in the
+    /// Keychain (base64) under the same service as cloud API keys/licence data.
+    private func remotePSK() -> Data {
+        if let s = KeychainStore.get(account: "remote.psk"), let d = Data(base64Encoded: s) { return d }
+        let d = RemoteTransport.newPSK()
+        KeychainStore.set(d.base64EncodedString(), account: "remote.psk")
+        return d
+    }
+
+    /// Start (or resume) the Remote server, creating it lazily on first use.
+    func startRemote() {
+        let server = remoteServer ?? SlateRemoteServer(model: self, psk: remotePSK())
+        remoteServer = server
+        try? server.start()
+    }
+
+    func stopRemote() { remoteServer?.stop() }
+
+    /// Rotate the pairing key, dropping every currently-paired phone. Used by the
+    /// "Revoke & regenerate code" button - a lost/borrowed phone's old code stops
+    /// working immediately.
+    func revokeRemote() {
+        let d = RemoteTransport.newPSK()
+        KeychainStore.set(d.base64EncodedString(), account: "remote.psk")
+        stopRemote()
+        remoteServer = SlateRemoteServer(model: self, psk: d)
+        if remoteEnabled { startRemote() }
+    }
+
     #if SLATE_PRO
     /// The private licensing service — official/owner builds only. The free public
     /// build has no licensing; gates and lifecycle route through `pro` instead, and
@@ -285,7 +339,14 @@ final class AppModel {
     func openLicenseSettings() {
         proUpsell = nil
         pendingSettingsTab = "license"
-        showSettings = true
+        // The upsell and Settings sheets are both anchored on RootView; SwiftUI can't
+        // dismiss one and present the other in the same update — doing `showSettings = true`
+        // here synchronously gets dropped (the modal just closes, nothing opens). Present
+        // Settings on a later main-actor turn, after the upsell dismissal animates out.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            showSettings = true
+        }
     }
     /// Sidebar visibility - bound to the split view; toggled from the glass
     /// header (there is NO system toolbar anymore, so no native toggle).
@@ -734,7 +795,7 @@ final class AppModel {
     private func roundtableTurn(speaker: RoundtableParticipant, roster: [RoundtableParticipant],
                                 topic: String, round: Int, totalRounds: Int, isSynthesis: Bool,
                                 temperature: Double, in id: Conversation.ID) async {
-        guard let engine = roundtableEngines[speaker.id],
+        guard let engine = roundtableEngines[speaker.modelRef],
               let convo = conversations.first(where: { $0.id == id }) else { return }
         // The synthesis turn is labeled distinctly ("Synthesis", its own colour) so
         // it reads as a summary of the discussion, not just another model's turn.
@@ -825,8 +886,13 @@ final class AppModel {
         var unloaded: URL?
         let localRefs = refs.filter { isLocalRef($0) }
         if !localRefs.isEmpty {
+            // Dedupe by DISTINCT ref: a second seat on the same model reuses the one
+            // engine + KV cache, so it adds no extra weight to the preflight estimate.
+            // Double-counting it here would make the RAM refusal over-eager.
+            var distinctLocalRefs: [String] = []
+            for ref in localRefs where !distinctLocalRefs.contains(ref) { distinctLocalRefs.append(ref) }
             var fileSizesGB: [Double] = []
-            for ref in localRefs {
+            for ref in distinctLocalRefs {
                 let url = URL(fileURLWithPath: ref)
                 if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
                     fileSizesGB.append(Double(size) / 1_073_741_824)
@@ -860,19 +926,28 @@ final class AppModel {
         }
         var roster: [RoundtableParticipant] = []
         var engines: [String: any LLMEngine] = [:]
-        for ref in refs where engines[ref] == nil {   // one engine per distinct ref
+        var engineName: [String: String] = [:]   // per-ref display name, for the roster pass
+        // 1) Build the engine POOL over DISTINCT refs only: several seats can share
+        //    the same model, and a duplicate reuses the one engine (no extra weight
+        //    or KV cache).
+        for ref in refs where engines[ref] == nil {
             // Stop during assembly: don't begin loading further seats. The seat
             // already loading (a blocking C read) can't be interrupted, but this
             // bounds the damage to one in-flight load instead of the whole roster.
             if Task.isCancelled { break }
             guard let made = await makeRoundtableEngine(ref: ref) else { continue }
-            // Persona is parallel to `refs` (the persisted config), so index it by
-            // the ref's own position - NOT by roster.count, which lags when a seat
-            // is skipped (cloud off, deleted GGUF) and would shift personas.
-            let persona = refs.firstIndex(of: ref).flatMap { $0 < personas.count ? personas[$0] : nil } ?? ""
             engines[ref] = made.engine
-            let name = uniqueRoundtableName(made.name, taken: roster.map(\.name))
-            roster.append(RoundtableParticipant(id: ref, name: name, persona: persona, index: roster.count))
+            engineName[ref] = made.name
+        }
+        // 2) Build the ROSTER over the FULL seat list so each duplicate gets its own
+        //    seat, indexing persona by SEAT POSITION (parallel to `refs`). Seats
+        //    whose engine failed to load (cloud off, deleted GGUF) are skipped.
+        for (i, ref) in refs.enumerated() {
+            guard engines[ref] != nil else { continue }
+            let persona = i < personas.count ? personas[i] : ""
+            let name = uniqueRoundtableName(engineName[ref] ?? SpeakerStyle.seatName(ref), taken: roster.map(\.name))
+            roster.append(RoundtableParticipant(id: "\(roster.count):\(ref)", modelRef: ref,
+                                                name: name, persona: persona, index: roster.count))
         }
         return (roster, engines, nil, unloaded, false)
     }
@@ -1119,6 +1194,35 @@ final class AppModel {
     func rescanModels() {
         models = ModelCatalog.scan(directories: ModelCatalog.defaultDirectories(),
                                    excluding: [ImageBundle.storeRoot])
+    }
+
+    /// Resolve an engine for a model ref usable by the remote server (free build). Local GGUF
+    /// path → LlamaEngine; "cloud:<id>" → OpenAICompatibleEngine. Off the main actor for cold loads.
+    /// Mirrors `ProHost.makeAutomationEngine(modelRef:)` — kept free since remote transport is a
+    /// free feature and must not import slate-pro.
+    func makeEngine(forRef ref: String) async throws -> any LLMEngine {
+        if ref.hasPrefix("cloud:") {
+            let id = String(ref.dropFirst("cloud:".count))
+            guard let p = settings.cloudProviders.first(where: { $0.id == id }) else {
+                throw NSError(domain: "SlateRemote", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cloud model unavailable."])
+            }
+            return OpenAICompatibleEngine(provider: p, apiKey: KeychainStore.get(account: p.id))
+        }
+        let url = URL(fileURLWithPath: ref)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw NSError(domain: "SlateRemote", code: 2, userInfo: [NSLocalizedDescriptionKey: "The model file was moved or deleted."])
+        }
+        let mmproj = ModelCatalog.mmproj(for: url).flatMap { isLoadableGGUF($0) ? $0.path : nil }
+        let ctx = UInt32(settings.contextWindow)
+        let path = url.path
+        return try await Task.detached { try LlamaEngine(modelPath: path, mmprojPath: mmproj, nCtx: ctx) }.value
+    }
+
+    /// Installed local models + configured cloud models, for the remote `models` reply.
+    var availableModelOptions: [(ref: String, label: String, isLocal: Bool)] {
+        var out = models.map { (ref: $0.url.path, label: $0.name, isLocal: true) }
+        out += settings.cloudProviders.filter { hasCloudKey($0) }.map { (ref: "cloud:\($0.id)", label: $0.name, isLocal: false) }
+        return out
     }
 
     private func friendly(_ error: Error) -> String {

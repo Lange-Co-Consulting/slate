@@ -1,0 +1,73 @@
+# Slate Remote — native SwiftUI iOS companion for Slate.
+# Generate the Xcode project with:  xcodegen generate   (run in this folder)
+#
+# TestFlight/App Store distribution needs the operator's Apple Developer Program
+# team + an "Apple Distribution" cert + an App Store provisioning profile. Set
+# DEVELOPMENT_TEAM below (or in Xcode → Signing & Capabilities) once that exists.
+name: SlateRemote
+options:
+  bundleIdPrefix: com.langeundco.slate
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+packages:
+  SlateRemoteProtocol:
+    path: ../SlateRemoteProtocol
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""            # ← operator sets their Apple Developer Team ID here
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  SlateRemote:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: SlateRemoteProtocol
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.langeundco.slate.remote
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"      # iPhone only
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Slate Remote
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen:
+          UIColorName: Canvas
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSLocalNetworkUsageDescription: "Slate Remote finds and connects to your Mac running Slate over your local network. Nothing leaves your network."
+        NSBonjourServices:
+          - _slate-remote._tcp
+        NSCameraUsageDescription: "Slate Remote uses the camera once to scan the pairing QR code shown in Slate on your Mac."
+  SlateRemoteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: SlateRemote
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.langeundco.slate.remote.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SlateRemote:
+    build:
+      targets:
+        SlateRemote: all
+        SlateRemoteTests: [test]
+    test:
+      targets:
+        - SlateRemoteTests

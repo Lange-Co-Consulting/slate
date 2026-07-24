@@ -20,7 +20,18 @@ VERSION_VALUE="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 BUILD_VALUE="$(tr -d '[:space:]' < "$ROOT/BUILD_NUMBER")"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" = "$VERSION_VALUE"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" = "$BUILD_VALUE"
-test "$(/usr/libexec/PlistBuddy -c 'Print :SlateBuildChannel' "$PLIST")" = "beta"
+# The channel must match what the build was configured with, not a hardcoded
+# value — a stable release would otherwise fail its own audit.
+EXPECTED_CHANNEL="${SLATE_RELEASE_CHANNEL:-stable}"
+[[ "$EXPECTED_CHANNEL" = "beta" || "$EXPECTED_CHANNEL" = "stable" ]] || {
+  echo "Invalid SLATE_RELEASE_CHANNEL: $EXPECTED_CHANNEL" >&2; exit 1;
+}
+test "$(/usr/libexec/PlistBuddy -c 'Print :SlateBuildChannel' "$PLIST")" = "$EXPECTED_CHANNEL"
+# A public Developer ID build is a real release: it must never go out on the beta channel.
+if [ "$MODE" = "developer-id" ] && [ "$EXPECTED_CHANNEL" != "stable" ]; then
+  echo "Public Developer ID release must be built with SLATE_RELEASE_CHANNEL=stable" >&2
+  exit 1
+fi
 
 OWNER_VALUE="$(/usr/libexec/PlistBuddy -c 'Print :SlateOwnerBuild' "$PLIST")"
 if [ "$MODE" = "owner" ]; then

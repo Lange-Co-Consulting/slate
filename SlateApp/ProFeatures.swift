@@ -116,7 +116,10 @@ struct DefaultFreeProFeatures: ProFeatures {
     func startTrial() {}
     var roundtableModelCap: Int { 2 }
     var roundtableSynthesisAllowed: Bool { false }
-    func imageSurface(_ convo: Conversation) -> AnyView { AnyView(ProFeaturePlaceholder(feature: .image)) }
+    // Free users get the real image composer (pick model/aspect/seed, open the Model Manager)
+    // — the paywall is on Generate: `ImageSectionView.generate()` calls `requirePro(.image)`
+    // and the free `generateImage` throws. A dead placeholder here made "New Image" feel broken.
+    func imageSurface(_ convo: Conversation) -> AnyView { AnyView(ImageSectionView(convo: convo)) }
     func generateImage(_ job: ImageJob, onStep: @escaping @Sendable (Int, Int) -> Void) async throws -> Data {
         throw ProUnavailable.imageGenerationRequiresPro
     }

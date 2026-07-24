@@ -36,9 +36,19 @@ command -v gh >/dev/null || { echo "error: GitHub CLI (gh) is required." >&2; ex
 gh auth status >/dev/null 2>&1 || { echo "error: 'gh auth login' first." >&2; exit 1; }
 [ -f "$KEY" ] || { echo "error: update key not found at: $KEY" >&2; exit 1; }
 
-VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
-BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
+# VERSION/BUILD_NUMBER are the single source of truth (bump-version.sh writes them).
+# The template Info.plist is only stamped into the *built* app by configure-plist.sh,
+# so reading the version from it would publish under whatever the template last held —
+# e.g. tagging a 1.0.0 build as v0.1.1 and clobbering that release's assets.
+VERSION=$(tr -d '[:space:]' < VERSION)
+BUILD=$(tr -d '[:space:]' < BUILD_NUMBER)
 PINNED_PUBKEY=$(/usr/libexec/PlistBuddy -c "Print :SlateUpdatePublicKey" "$PLIST")
+
+# The paid layer must be licence-gated, never an owner build with everything unlocked.
+if [ "${SLATE_OWNER_BUILD:-false}" = "true" ]; then
+  echo "error: SLATE_OWNER_BUILD=true — that build unlocks every Pro feature. Never publish it." >&2
+  exit 1
+fi
 TAG="v${VERSION}"
 DMG="Slate.dmg"
 DMG_URL="https://github.com/${REPO}/releases/download/${TAG}/${DMG}"
@@ -64,6 +74,29 @@ echo "[release] ${TAG} (build ${BUILD}) → ${REPO}"
 echo "[release] building official DMG…"
 bash SlateApp/Packaging/build-dmg.sh
 [ -f "$DMG" ] || { echo "error: build-dmg.sh did not produce ${DMG}." >&2; exit 1; }
+
+# A public release must be Developer-ID signed, notarized and stapled. Verify the
+# actual artifact rather than trusting that the right env vars were exported —
+# publishing an unnotarized DMG would give every downloader a Gatekeeper warning.
+if [ "${SLATE_ALLOW_UNNOTARIZED:-0}" = "1" ]; then
+  echo "[release] WARNING: SLATE_ALLOW_UNNOTARIZED=1 — skipping notarization checks." >&2
+  echo "[release] WARNING: do NOT hand this DMG to users." >&2
+else
+  echo "[release] verifying Developer ID signature, notarization and staple…"
+  codesign --verify --strict --verbose=2 "$DMG" 2>&1 | sed 's/^/  /'
+  codesign -dvv "$DMG" 2>&1 | grep -F 'Authority=Developer ID Application:' >/dev/null || {
+    echo "error: ${DMG} is not signed with a Developer ID Application certificate." >&2
+    echo "       Run: bash SlateApp/Packaging/preflight-notarization.sh" >&2
+    exit 1
+  }
+  xcrun stapler validate "$DMG" >/dev/null 2>&1 || {
+    echo "error: ${DMG} has no stapled notarization ticket." >&2
+    echo "       Rebuild with SLATE_NOTARY_PROFILE set (see preflight-notarization.sh)." >&2
+    exit 1
+  }
+  spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG" 2>&1 | sed 's/^/  /'
+  echo "[release] notarization verified ✓ (users get no Gatekeeper warning)"
+fi
 
 SHA=$(shasum -a 256 "$DMG" | awk '{print $1}')
 echo "[release] sha256=${SHA}"

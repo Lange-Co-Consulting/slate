@@ -10,7 +10,8 @@ set -euo pipefail
 #
 #   Scripts/publish-public.sh ["commit message"]
 #
-# Excludes: docs/, CLAUDE.md, landing/ (deployed separately), Support/,
+# Excludes: docs/, CLAUDE.md, landing/ (deployed separately), Admin/ (strictly
+# private operator tooling), Support/,
 # Package.resolved (regenerated in the public clone), and the self-hosted
 # .github/workflows/ci.yml (the hosted build.yml IS published for public CI).
 
@@ -24,7 +25,7 @@ trap 'rm -rf "$WORK" "$EXPORT"' EXIT
 
 git clone -q "$PUBLIC_URL" "$WORK/pub"
 git archive HEAD | tar -x -C "$EXPORT"
-rm -rf "$EXPORT/docs" "$EXPORT/CLAUDE.md" "$EXPORT/landing" "$EXPORT/Support" "$EXPORT/Package.resolved" "$EXPORT/.github/workflows/ci.yml"
+Scripts/strip-public-export.sh "$EXPORT"
 
 # Mirror the curated tree into the public clone (preserve its .git + Package.resolved).
 rsync -a --delete --exclude='.git' --exclude='.build' --exclude='Package.resolved' "$EXPORT/" "$WORK/pub/"

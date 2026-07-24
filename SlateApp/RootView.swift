@@ -112,9 +112,20 @@ struct RootView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
             if model.showingAutomations {
-                model.pro.automationsSurface()
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, model.isFullscreen ? 8 : 34)
+                Group {
+                    #if SLATE_PRO
+                    // Inject the ProHost so the automations surface (a slate-pro view
+                    // rendered inline here, unlike Quick's own hosted panel) can reach
+                    // app services: its model picker reads `host.availableModels` and the
+                    // runner claims the single-run gate through the host. Without this the
+                    // picker shows "No models available" and runs can't start.
+                    model.pro.automationsSurface().environment(\.proHost, model)
+                    #else
+                    model.pro.automationsSurface()
+                    #endif
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, model.isFullscreen ? 8 : 34)
             } else {
                 ConversationView()
                     .frame(maxWidth: .infinity)

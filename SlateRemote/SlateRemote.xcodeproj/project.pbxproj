@@ -1,0 +1,569 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1E628DD9513D59EBBB771A2B /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54806CC9A2D205B000A9E77B /* Theme.swift */; };
+		221C9C7ECABA09A07172D283 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A428002066699A7E6743767 /* Assets.xcassets */; };
+		27FF30B4FCEE99B6020C1B5D /* SlateRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF2DEBE2EA1BD586DC9B606 /* SlateRemoteApp.swift */; };
+		2C46B130CD586868DC968C97 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7A541D250A5C30914D06EF /* MainView.swift */; };
+		303B76A632D63C8FAEAB1D36 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0DB011C194F079388CC682A /* OnboardingFlow.swift */; };
+		364FA01B1282458365583E9B /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FDEED981F789896D7F1AC7 /* MarkdownText.swift */; };
+		3F923982230FA9E8C4ABA04E /* MacStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5EB77C5FBEA62137AA72A8 /* MacStatusBanner.swift */; };
+		4B56B3B8DCDD5B610E407882 /* SlateRemoteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E476D08CE7911568BC9E09 /* SlateRemoteTests.swift */; };
+		51AD4352C3E46D93DC6BA460 /* Palette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFE7EC5B69DDCE10C1CA8E9 /* Palette.swift */; };
+		639A67F7E1005A2787A55096 /* WeaveMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152026F0B2E4ADAEB56F271F /* WeaveMark.swift */; };
+		70C47199A4A95250D80D4CDE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB37CDAEC554F4BD18E8A183 /* SettingsView.swift */; };
+		91CB31AAA69DFD56A8AEF271 /* RemoteClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB2C49E4572B3C0A3EB6D47 /* RemoteClient.swift */; };
+		98167225509A2C31D334116E /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EC7AE8FBBC7C1D238A2105 /* PairingStore.swift */; };
+		A4518ABC3115D5BA2F946635 /* SlateRemoteProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = 815D01CE2CBCAC2824C0B8E3 /* SlateRemoteProtocol */; };
+		AF7F9BC185116C09765032EC /* StatesGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5AE1AB8B26B7CF9656F6C /* StatesGalleryView.swift */; };
+		BB63EC79B5141CC1F25E7CF6 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726E0A5EBBDD9DD3519B0435 /* ChatView.swift */; };
+		BBBF9ACBBCA3AFE9BEAB1B06 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F22685C9DE23C1300B63325 /* Components.swift */; };
+		C4924C656C3C9A81EC98CF81 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0612954330AF6D1116E0EF /* ThemeManager.swift */; };
+		DE07FB65CBA459F62944C125 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7429A3EF4890955DC5E1409D /* AppState.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A339D7F754D62337FF06098B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 05C71CC6116C3650DBBF4E66 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 70E172BCA41C12AE9F2DEF0C;
+			remoteInfo = SlateRemote;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		152026F0B2E4ADAEB56F271F /* WeaveMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaveMark.swift; sourceTree = "<group>"; };
+		18A8D280101352D174CB1744 /* SlateRemoteTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SlateRemoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A428002066699A7E6743767 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		22EC7AE8FBBC7C1D238A2105 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
+		3B0F6A9424760D03E7E69DF8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		4D0612954330AF6D1116E0EF /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+		54806CC9A2D205B000A9E77B /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		5F22685C9DE23C1300B63325 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		679F9B3751D2CD4D24A6B3F7 /* SlateRemote.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SlateRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		68FDEED981F789896D7F1AC7 /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
+		726E0A5EBBDD9DD3519B0435 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		7429A3EF4890955DC5E1409D /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		80E476D08CE7911568BC9E09 /* SlateRemoteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlateRemoteTests.swift; sourceTree = "<group>"; };
+		8FFE7EC5B69DDCE10C1CA8E9 /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
+		9FD5AE1AB8B26B7CF9656F6C /* StatesGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatesGalleryView.swift; sourceTree = "<group>"; };
+		AC7A541D250A5C30914D06EF /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		D80336DF6543C56FDAD32030 /* SlateRemoteProtocol */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SlateRemoteProtocol; path = ../SlateRemoteProtocol; sourceTree = SOURCE_ROOT; };
+		DBF2DEBE2EA1BD586DC9B606 /* SlateRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlateRemoteApp.swift; sourceTree = "<group>"; };
+		E0DB011C194F079388CC682A /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
+		FB37CDAEC554F4BD18E8A183 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		FE5EB77C5FBEA62137AA72A8 /* MacStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacStatusBanner.swift; sourceTree = "<group>"; };
+		FEB2C49E4572B3C0A3EB6D47 /* RemoteClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteClient.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EC10418F862F1AD1A1E828DE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4518ABC3115D5BA2F946635 /* SlateRemoteProtocol in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		32568CF1F895268DEA1315FC /* App */ = {
+			isa = PBXGroup;
+			children = (
+				DBF2DEBE2EA1BD586DC9B606 /* SlateRemoteApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		51E784318F1834A782ED970A /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				FB37CDAEC554F4BD18E8A183 /* SettingsView.swift */,
+				9FD5AE1AB8B26B7CF9656F6C /* StatesGalleryView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		5BF317252D817F0C070A622D /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				80E476D08CE7911568BC9E09 /* SlateRemoteTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		6CFC2DB329180FDA24E7F7F9 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				5F22685C9DE23C1300B63325 /* Components.swift */,
+				8FFE7EC5B69DDCE10C1CA8E9 /* Palette.swift */,
+				54806CC9A2D205B000A9E77B /* Theme.swift */,
+				4D0612954330AF6D1116E0EF /* ThemeManager.swift */,
+				152026F0B2E4ADAEB56F271F /* WeaveMark.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		83050AB1F6889360F157D195 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				D80336DF6543C56FDAD32030 /* SlateRemoteProtocol */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		A40C64EC6DA60C15C0B87D28 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				679F9B3751D2CD4D24A6B3F7 /* SlateRemote.app */,
+				18A8D280101352D174CB1744 /* SlateRemoteTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C40735F8FC0594ED87FC2337 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				32568CF1F895268DEA1315FC /* App */,
+				E308CC99EDFE68D85FC6CA67 /* Chat */,
+				6CFC2DB329180FDA24E7F7F9 /* Design */,
+				F8857C933DFE372EB3CBBC85 /* Onboarding */,
+				51E784318F1834A782ED970A /* Settings */,
+				F5A8D4D982F819159A54E13B /* State */,
+				1A428002066699A7E6743767 /* Assets.xcassets */,
+				3B0F6A9424760D03E7E69DF8 /* Info.plist */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		CA0A509EAF27A677124FA504 = {
+			isa = PBXGroup;
+			children = (
+				83050AB1F6889360F157D195 /* Packages */,
+				C40735F8FC0594ED87FC2337 /* Sources */,
+				5BF317252D817F0C070A622D /* Tests */,
+				A40C64EC6DA60C15C0B87D28 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E308CC99EDFE68D85FC6CA67 /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				726E0A5EBBDD9DD3519B0435 /* ChatView.swift */,
+				FE5EB77C5FBEA62137AA72A8 /* MacStatusBanner.swift */,
+				AC7A541D250A5C30914D06EF /* MainView.swift */,
+				68FDEED981F789896D7F1AC7 /* MarkdownText.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		F5A8D4D982F819159A54E13B /* State */ = {
+			isa = PBXGroup;
+			children = (
+				7429A3EF4890955DC5E1409D /* AppState.swift */,
+				22EC7AE8FBBC7C1D238A2105 /* PairingStore.swift */,
+				FEB2C49E4572B3C0A3EB6D47 /* RemoteClient.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		F8857C933DFE372EB3CBBC85 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				E0DB011C194F079388CC682A /* OnboardingFlow.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		61DAD02D6878321500CF7D72 /* SlateRemoteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A30A995EB3283143C283C0EB /* Build configuration list for PBXNativeTarget "SlateRemoteTests" */;
+			buildPhases = (
+				E7EADB3B144A083CE83C9A11 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EAEF9026C58187EA10F2045A /* PBXTargetDependency */,
+			);
+			name = SlateRemoteTests;
+			packageProductDependencies = (
+			);
+			productName = SlateRemoteTests;
+			productReference = 18A8D280101352D174CB1744 /* SlateRemoteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		70E172BCA41C12AE9F2DEF0C /* SlateRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 88A9D34B99DDC1DD1E6A3B4D /* Build configuration list for PBXNativeTarget "SlateRemote" */;
+			buildPhases = (
+				E5ABC6E7CF55F5CB15BDD516 /* Sources */,
+				1153912C2CEAD76837AE0697 /* Resources */,
+				EC10418F862F1AD1A1E828DE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SlateRemote;
+			packageProductDependencies = (
+				815D01CE2CBCAC2824C0B8E3 /* SlateRemoteProtocol */,
+			);
+			productName = SlateRemote;
+			productReference = 679F9B3751D2CD4D24A6B3F7 /* SlateRemote.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		05C71CC6116C3650DBBF4E66 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					61DAD02D6878321500CF7D72 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					70E172BCA41C12AE9F2DEF0C = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 44F4C8C7482B6AD1552188B3 /* Build configuration list for PBXProject "SlateRemote" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CA0A509EAF27A677124FA504;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E8F251DFD33744DCCB713977 /* XCLocalSwiftPackageReference "../SlateRemoteProtocol" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A40C64EC6DA60C15C0B87D28 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				70E172BCA41C12AE9F2DEF0C /* SlateRemote */,
+				61DAD02D6878321500CF7D72 /* SlateRemoteTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1153912C2CEAD76837AE0697 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				221C9C7ECABA09A07172D283 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E5ABC6E7CF55F5CB15BDD516 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DE07FB65CBA459F62944C125 /* AppState.swift in Sources */,
+				BB63EC79B5141CC1F25E7CF6 /* ChatView.swift in Sources */,
+				BBBF9ACBBCA3AFE9BEAB1B06 /* Components.swift in Sources */,
+				3F923982230FA9E8C4ABA04E /* MacStatusBanner.swift in Sources */,
+				2C46B130CD586868DC968C97 /* MainView.swift in Sources */,
+				364FA01B1282458365583E9B /* MarkdownText.swift in Sources */,
+				303B76A632D63C8FAEAB1D36 /* OnboardingFlow.swift in Sources */,
+				98167225509A2C31D334116E /* PairingStore.swift in Sources */,
+				51AD4352C3E46D93DC6BA460 /* Palette.swift in Sources */,
+				91CB31AAA69DFD56A8AEF271 /* RemoteClient.swift in Sources */,
+				70C47199A4A95250D80D4CDE /* SettingsView.swift in Sources */,
+				27FF30B4FCEE99B6020C1B5D /* SlateRemoteApp.swift in Sources */,
+				AF7F9BC185116C09765032EC /* StatesGalleryView.swift in Sources */,
+				1E628DD9513D59EBBB771A2B /* Theme.swift in Sources */,
+				C4924C656C3C9A81EC98CF81 /* ThemeManager.swift in Sources */,
+				639A67F7E1005A2787A55096 /* WeaveMark.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E7EADB3B144A083CE83C9A11 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4B56B3B8DCDD5B610E407882 /* SlateRemoteTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		EAEF9026C58187EA10F2045A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 70E172BCA41C12AE9F2DEF0C /* SlateRemote */;
+			targetProxy = A339D7F754D62337FF06098B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2343E7C51A1D18083A56F44A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.langeundco.slate.remote.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SlateRemote.app/SlateRemote";
+			};
+			name = Debug;
+		};
+		2FC857CE2AC4717B25546DA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.langeundco.slate.remote.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SlateRemote.app/SlateRemote";
+			};
+			name = Release;
+		};
+		31A257E55BA04A18F4192B61 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.langeundco.slate.remote;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		41430DA3381D33E5590807DB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		4DEB140BA1DEC73E4E11C4C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.langeundco.slate.remote;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4E9C374E042D4DCE5978A3F7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		44F4C8C7482B6AD1552188B3 /* Build configuration list for PBXProject "SlateRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				41430DA3381D33E5590807DB /* Debug */,
+				4E9C374E042D4DCE5978A3F7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		88A9D34B99DDC1DD1E6A3B4D /* Build configuration list for PBXNativeTarget "SlateRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				31A257E55BA04A18F4192B61 /* Debug */,
+				4DEB140BA1DEC73E4E11C4C8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A30A995EB3283143C283C0EB /* Build configuration list for PBXNativeTarget "SlateRemoteTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2343E7C51A1D18083A56F44A /* Debug */,
+				2FC857CE2AC4717B25546DA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E8F251DFD33744DCCB713977 /* XCLocalSwiftPackageReference "../SlateRemoteProtocol" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../SlateRemoteProtocol;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		815D01CE2CBCAC2824C0B8E3 /* SlateRemoteProtocol */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SlateRemoteProtocol;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 05C71CC6116C3650DBBF4E66 /* Project object */;
+}

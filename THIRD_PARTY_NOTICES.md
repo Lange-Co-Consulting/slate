@@ -52,5 +52,5 @@ downloaded weights.
 | Qwen3-TTS 0.6B CustomVoice edge build (premium voice) | https://huggingface.co/AtomGradient/Qwen3-TTS-0.6B-CustomVoice-4bit-pruned-vocab-lite | MIT (base model Apache-2.0) |
 
 The catalog deliberately excludes models whose provider terms do not fit a
-commercial Slate beta. Users can still import their own compatible local files;
+commercial Slate release. Users can still import their own compatible local files;
 Slate does not relicense them.

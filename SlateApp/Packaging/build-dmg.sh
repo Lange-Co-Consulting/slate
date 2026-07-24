@@ -87,6 +87,17 @@ xcrun xcstringstool compile SlateApp/Localizable.xcstrings \
 IDENTITY="${SLATE_SIGN_IDENTITY:--}"
 LOCAL_ENTITLEMENTS="SlateApp/Packaging/Slate.local.entitlements"
 DEVELOPER_ID=false
+# Resolve whatever was passed (certificate name OR the 40-char SHA-1 that
+# `security find-identity` prints first) to the certificate's real name. Branching on
+# the raw string meant a pasted hash silently took the self-signed path — which signs
+# without --timestamp and with disable-library-validation, i.e. a DMG Apple rejects,
+# while the audit still reported success because it ran in public-test mode.
+if [ "$IDENTITY" != "-" ]; then
+  CERT_NAME="$(security find-identity -v -p codesigning | grep -F "$IDENTITY" | sed -n 's/.*"\(.*\)".*/\1/p' | head -1)"
+  [ -n "$CERT_NAME" ] || { echo "[dmg] SLATE_SIGN_IDENTITY not found in the keychain: $IDENTITY" >&2; exit 1; }
+else
+  CERT_NAME="-"
+fi
 # Nested Mach-O tools must each be signed (we avoid --deep): the bundled
 # ripgrep otherwise keeps its upstream ad-hoc signature and notarization
 # rejects it.
@@ -95,7 +106,7 @@ if [ "$IDENTITY" = "-" ]; then
   [ -f "$APP/Contents/Resources/rg" ] && codesign --force --options runtime --sign - "$APP/Contents/Resources/rg"
   codesign --force --options runtime --sign - "$APP/Contents/Resources/slatectl"
   codesign --force --options runtime --entitlements "$LOCAL_ENTITLEMENTS" --sign - "$APP"
-elif [[ "$IDENTITY" != "Developer ID Application:"* ]]; then
+elif [[ "$CERT_NAME" != "Developer ID Application:"* ]]; then
   # Local/self-signed certificates have no Apple Team ID. Keep the hardened
   # runtime, but allow our bundled third-party framework through validation.
   codesign --force --options runtime --sign "$IDENTITY" "$APP/Contents/Frameworks/llama.framework"
@@ -116,6 +127,30 @@ elif [ "$DEVELOPER_ID" = true ]; then
   bash SlateApp/Packaging/audit-app-bundle.sh "$APP" developer-id
 else
   bash SlateApp/Packaging/audit-app-bundle.sh "$APP" public-test
+fi
+
+# Notarize and staple the .app BEFORE it is packed into the image, so the copy the
+# user drags to /Applications carries its own ticket. Stapling only the DMG leaves
+# the installed app needing an online Gatekeeper lookup on first launch — the wrong
+# failure mode for an app whose whole promise is running offline.
+if [ -n "${SLATE_NOTARY_PROFILE:-}" ] && [ "$DEVELOPER_ID" = true ]; then
+  echo "[dmg] notarizing the app bundle…"
+  APP_ZIP_DIR="$(mktemp -d)"
+  ditto -c -k --keepParent "$APP" "$APP_ZIP_DIR/Slate-app.zip"
+  APP_OUT="$(xcrun notarytool submit "$APP_ZIP_DIR/Slate-app.zip" \
+    --keychain-profile "$SLATE_NOTARY_PROFILE" --wait 2>&1)"
+  echo "$APP_OUT"
+  APP_ID="$(printf '%s\n' "$APP_OUT" | awk '/^ *id: /{print $2; exit}')"
+  if ! printf '%s\n' "$APP_OUT" | grep -qE 'status: *Accepted'; then
+    echo "[dmg] app notarization did NOT succeed." >&2
+    [ -n "$APP_ID" ] && xcrun notarytool log "$APP_ID" --keychain-profile "$SLATE_NOTARY_PROFILE" >&2 || true
+    rm -rf "$APP_ZIP_DIR"; exit 1
+  fi
+  rm -rf "$APP_ZIP_DIR"
+  xcrun stapler staple "$APP"
+  xcrun stapler validate "$APP"
+  spctl --assess --type execute --verbose=2 "$APP"
+  echo "[dmg] app stapled ✓ (opens offline without a Gatekeeper lookup)"
 fi
 
 STAGE_ROOT="$(mktemp -d)"
@@ -141,11 +176,28 @@ if [ -n "${SLATE_NOTARY_PROFILE:-}" ]; then
     exit 1
   fi
   echo "[dmg] notarizing…"
-  xcrun notarytool submit "$DMG" --keychain-profile "$SLATE_NOTARY_PROFILE" --wait
+  # --wait can still exit 0 on an "Invalid" verdict, so assert the status and pull
+  # Apple's log when it is anything other than Accepted.
+  SUBMIT_OUT="$(xcrun notarytool submit "$DMG" --keychain-profile "$SLATE_NOTARY_PROFILE" --wait 2>&1)"
+  echo "$SUBMIT_OUT"
+  SUBMIT_ID="$(printf '%s\n' "$SUBMIT_OUT" | awk '/^ *id: /{print $2; exit}')"
+  if ! printf '%s\n' "$SUBMIT_OUT" | grep -qE 'status: *Accepted'; then
+    echo "[dmg] notarization did NOT succeed." >&2
+    [ -n "$SUBMIT_ID" ] && xcrun notarytool log "$SUBMIT_ID" --keychain-profile "$SLATE_NOTARY_PROFILE" >&2 || true
+    exit 1
+  fi
   xcrun stapler staple "$DMG"
   xcrun stapler validate "$DMG"
   spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
-  bash Scripts/make-update-manifest.sh "$DMG" build/update-beta.json
+
+  # Verify the app *inside* the finished image — that is what customers mount and run.
+  MOUNT="$(mktemp -d)"
+  hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" >/dev/null
+  spctl --assess --type execute --verbose=2 "$MOUNT/Slate.app"
+  xcrun stapler validate "$MOUNT/Slate.app"
+  hdiutil detach "$MOUNT" >/dev/null
+  rm -rf "$MOUNT"
+  echo "[dmg] notarized, stapled and Gatekeeper-accepted ✓"
 fi
 
 echo "[dmg] done -> $(pwd)/$DMG  (no loose app left in the repo)"

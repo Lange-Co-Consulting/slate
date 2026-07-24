@@ -189,6 +189,11 @@ final class AppSettings {
     var menuBarEnabled: Bool {
         didSet { UserDefaults.standard.set(menuBarEnabled, forKey: "slate.menuBarEnabled") }
     }
+    /// Chat transcript + composer span the full chat pane instead of the centered
+    /// ~720pt reading column. Off by default (the tight, balanced measure).
+    var fullWidthChat: Bool {
+        didSet { UserDefaults.standard.set(fullWidthChat, forKey: "slate.fullWidthChat") }
+    }
     /// Global Slate Quick panel (Option-Space). It only talks to an in-process
     /// local model and never falls back to a configured cloud connector.
     var quickEnabled: Bool {
@@ -223,7 +228,24 @@ final class AppSettings {
     var contextWindow: Int {
         didSet { UserDefaults.standard.set(contextWindow, forKey: "slate.contextWindow") }
     }
-    static let contextWindowOptions = [4096, 8192, 16384, 32768, 65536, 131072]
+    static let contextWindowOptions = [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1_048_576]
+
+    /// Picker options for a given loaded model's trained max (`0` = no model / unknown).
+    /// With a model: the standard rungs up to its max, plus the max itself and half its max
+    /// ("up to that, or half"). Without one: the full ladder (the engine clamps to the real
+    /// max on load anyway). Always keeps `current` selectable so a saved value never vanishes.
+    static func contextWindowOptions(trainedMax: Int, current: Int) -> [Int] {
+        var opts: Set<Int>
+        if trainedMax > 0 {
+            opts = Set(contextWindowOptions.filter { $0 <= trainedMax })
+            opts.insert(trainedMax)
+            opts.insert(max(4096, trainedMax / 2))
+        } else {
+            opts = Set(contextWindowOptions)
+        }
+        opts.insert(current)
+        return opts.sorted()
+    }
 
     /// Preferred model loaded on launch (the default coding agent).
     var defaultModelPath: String? {
@@ -361,6 +383,7 @@ final class AppSettings {
         voiceChoiceMade = (UserDefaults.standard.object(forKey: "slate.voiceChoiceMade") as? Bool) ?? false
         crashReportsEnabled = (UserDefaults.standard.object(forKey: "slate.crashReportsEnabled") as? Bool) ?? true
         menuBarEnabled = (UserDefaults.standard.object(forKey: "slate.menuBarEnabled") as? Bool) ?? true
+        fullWidthChat = (UserDefaults.standard.object(forKey: "slate.fullWidthChat") as? Bool) ?? false
         quickEnabled = (UserDefaults.standard.object(forKey: "slate.quickEnabled") as? Bool) ?? true
         diarizationModelPath = UserDefaults.standard.string(forKey: "slate.diarizationModelPath")
         updateFeedURL = UserDefaults.standard.string(forKey: "slate.updateFeedURL")
@@ -385,6 +408,7 @@ final class AppSettings {
         theme = .dark
         customColorsEnabled = true
         resetPalette()
+        fullWidthChat = false
         memoryEnabled = true
         cloudEnabled = false
         silentModeEnabled = false
@@ -480,7 +504,7 @@ final class AppSettings {
               let importedEffort = ThinkingEffort(rawValue: snapshot.thinkingEffort),
               (0...1.5).contains(snapshot.defaultTemperature),
               (256...16_384).contains(snapshot.maxTokens),
-              Self.contextWindowOptions.contains(snapshot.contextWindow) else {
+              (1024...2_097_152).contains(snapshot.contextWindow) else {   // engine clamps to the model's max on load
             throw CocoaError(.fileReadCorruptFile)
         }
         theme = importedTheme

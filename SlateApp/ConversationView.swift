@@ -28,6 +28,9 @@ struct ConversationView: View {
     /// block instead of clinging to the left with a grey void on the right. Both
     /// share it so the input lines up under the text.
     static let contentWidth: CGFloat = 720
+    /// Live reading-column cap. `Full-width chat` (Settings ▸ General) lets the transcript +
+    /// composer span the whole chat pane; off = the tight, balanced 720pt measure.
+    private var columnWidth: CGFloat { model.settings.fullWidthChat ? .infinity : Self.contentWidth }
     @State private var input = ""
     @State private var showConvoSettings = false
     @State private var showPreview = false
@@ -168,7 +171,10 @@ struct ConversationView: View {
             if count >= 2 {
                 Rectangle().fill(.quaternary.opacity(0.55)).frame(height: 1)
                     .padding(.horizontal, 14)
-                RoundtableSeatRail(refs: convo.agentModels, activeSeat: activeSeat,
+                RoundtableSeatRail(seats: convo.agentModels.enumerated().map { i, ref in
+                                       (ref, i < convo.agentPersonas.count ? convo.agentPersonas[i] : "")
+                                   },
+                                   activeSeat: activeSeat,
                                    synthesizing: synthesizing, embedded: true,
                                    round: running ? model.streamingRound : nil,
                                    totalRounds: convo.agentRounds)
@@ -276,7 +282,7 @@ struct ConversationView: View {
             }
         }
         .padding(.horizontal, 28).padding(.top, 6).padding(.bottom, 16)
-        .frame(maxWidth: Self.contentWidth)
+        .frame(maxWidth: columnWidth)
         .frame(maxWidth: .infinity)
         .background { GeometryReader { g in Color.clear.preference(key: BottomBarHeightKey.self, value: g.size.height) } }
         .animation(.smooth(duration: 0.2), value: busyHere)
@@ -1181,7 +1187,7 @@ struct ConversationView: View {
     /// topics, synthesis and normal chats are unaffected.
     private static func seatIndent(kind: Conversation.Kind, speaker: String?, index: Int?) -> CGFloat {
         guard kind == .agents, let speaker, speaker != "Synthesis", let index else { return 0 }
-        return CGFloat(min(index, 2)) * 26
+        return CGFloat(min(index, 3)) * 26
     }
 
     private func transcript(_ convo: Conversation) -> some View {
@@ -1273,7 +1279,7 @@ struct ConversationView: View {
                     Color.clear.frame(height: bottomBarHeight + 20).id("bottom")
                 }
                 .padding(.horizontal, 28).padding(.vertical, 18)
-                .frame(maxWidth: Self.contentWidth)               // wide, balanced reading column…
+                .frame(maxWidth: columnWidth)               // wide, balanced reading column…
                 .frame(maxWidth: .infinity, alignment: .center)   // …centered in the window (composer shares it)
                 .animation(.smooth(duration: 0.25), value: convo.messages.count)
                 .animation(.easeInOut(duration: 0.2), value: model.isGenerating)
@@ -1420,11 +1426,15 @@ struct ConversationView: View {
                                     .frame(width: 38, height: 38)
                             }
                             .buttonStyle(CircleGlassButtonStyle())
-                            .disabled(!ready || model.usingCloud)
+                            // Stay tappable even without a loaded model or with
+                            // Cloud active: startVoice explains what's missing via
+                            // a toast instead of the button silently doing nothing.
+                            .disabled(voiceSession != nil)
                             .liquidHover(1.08)
                             .accessibilityLabel("Start voice conversation")
                             .help(model.usingCloud
                                   ? "Voice needs a local model (Cloud is active)"
+                                  : !ready ? "Load a local model to talk to Slate"
                                   : "Talk to Slate (⌘⇧V)")
                         }
 
@@ -1468,7 +1478,7 @@ struct ConversationView: View {
             }
         }
         .padding(.horizontal, 28).padding(.top, 6).padding(.bottom, 16)
-        .frame(maxWidth: Self.contentWidth)   // same column as the transcript - input lines up under the text
+        .frame(maxWidth: columnWidth)   // same column as the transcript - input lines up under the text
         .frame(maxWidth: .infinity)
         .background { GeometryReader { g in Color.clear.preference(key: BottomBarHeightKey.self, value: g.size.height) } }
         .animation(.snappy(duration: 0.28), value: attachedImage)
@@ -1556,8 +1566,18 @@ struct ConversationView: View {
     // MARK: Voice session
 
     private func startVoice(_ convo: Conversation) {
-        guard convo.kind == .chat, model.isModelLoaded, !model.usingCloud,
-              voiceSession == nil else { return }
+        guard convo.kind == .chat, voiceSession == nil else { return }
+        // Give an actionable reason instead of failing silently: voice is
+        // local-only and needs a model loaded.
+        if model.usingCloud {
+            model.notify(.warning, "Voice runs on a local model — turn off Cloud to talk to Slate.")
+            return
+        }
+        guard model.isModelLoaded else {
+            model.notify(.warning, "Load a local model to talk to Slate.",
+                         actionLabel: "Load model") { model.showModelManager = true }
+            return
+        }
         guard model.requirePro(.voice) else { return }
         withAnimation(.smooth(duration: 0.25)) {
             voiceSession = VoiceSession(model: model, flow: flow, convoID: convo.id)

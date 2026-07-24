@@ -5,7 +5,10 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PLIST="$1"
 VERSION="${SLATE_VERSION:-$(tr -d '[:space:]' < "$ROOT/VERSION")}"
 BUILD="${SLATE_BUILD_NUMBER:-$(tr -d '[:space:]' < "$ROOT/BUILD_NUMBER")}"
-CHANNEL="${SLATE_RELEASE_CHANNEL:-beta}"
+# Slate is 1.0 and out of beta, so 'stable' is the default. A pre-release build has to
+# opt in with SLATE_RELEASE_CHANNEL=beta — the previous default silently stamped every
+# release 'beta', which showed up as "Beta" in Settings ▸ About.
+CHANNEL="${SLATE_RELEASE_CHANNEL:-stable}"
 OWNER_BUILD="${SLATE_OWNER_BUILD:-false}"
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || {

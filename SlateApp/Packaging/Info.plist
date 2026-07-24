@@ -21,7 +21,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.1</string>
+	<string>1.0.0</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -34,7 +34,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationCategoryType</key>
@@ -47,7 +47,7 @@
 		<true/>
 	</dict>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Slate can insert dictated text into other apps when direct accessibility insertion is unavailable.</string>
+	<string>Slate opens Terminal to run the provider-login command when you start it from Settings.</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>Slate accesses projects on the Desktop only when you choose them.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
@@ -84,7 +84,7 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Slate transcribes speech locally on this Mac; it does not use Apple's cloud speech recognition service.</string>
 	<key>SlateBuildChannel</key>
-	<string>beta</string>
+	<string>stable</string>
 	<key>SlateOfflineLicensePublicKey</key>
 	<string>x2vjzwJLGqpaJzRE7Y+aJIqEWUbd9OFKwseZYDiqxK4=</string>
 	<key>SlateOwnerBuild</key>

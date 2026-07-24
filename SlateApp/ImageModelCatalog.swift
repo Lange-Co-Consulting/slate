@@ -34,43 +34,11 @@ struct ImageBundle: Identifiable {
         URL(string: "https://huggingface.co/\(repo)/resolve/main/\(path)?download=true")!
     }
 
+    // NOTE: FLUX.2 "klein" (Black Forest Labs) was removed from this catalog — despite the
+    // Apache-2.0 GGUF re-uploads, the FLUX.2 klein weights ship under BFL's FLUX.2 klein
+    // (non-commercial) licence, which must not appear in Slate's commercial download catalog.
+    // The `flux2` arch tag is retained (harmless) so a re-add under a commercial licence is easy.
     static let all: [ImageBundle] = [
-        // FLUX.2 klein (Black Forest Labs) - a different family from Qwen, distilled
-        // for fast 4-step generation. Diffusion GGUF from leejet (the sd.cpp author),
-        // Qwen3 text encoder from unsloth, and the ungated FLUX.2 small-decoder VAE.
-        // All three are Apache-2.0. flux2 arch defaults: 4 steps, cfg 1.0.
-        ImageBundle(
-            id: "flux2-klein-4b", name: "FLUX.2 klein · Fast", arch: "flux2",
-            note: "Text to image · fast 4-step · Apache-2.0 · ~5 GB",
-            licenseName: "Apache-2.0",
-            licenseNote: "Apache-2.0 model bundle from Black Forest Labs. Slate downloads the three files only after you review the provider terms.",
-            modelCardURL: URL(string: "https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF")!,
-            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
-            requiresReferenceImage: false,
-            files: [
-                .init(role: .diffusion, name: "flux-2-klein-4b-Q4_0.gguf",
-                      url: hf("leejet/FLUX.2-klein-4B-GGUF", "flux-2-klein-4b-Q4_0.gguf"), approxBytes: 2_460_378_560),
-                .init(role: .encoder, name: "Qwen3-4B-Q4_K_M.gguf",
-                      url: hf("unsloth/Qwen3-4B-GGUF", "Qwen3-4B-Q4_K_M.gguf"), approxBytes: 2_497_281_312),
-                .init(role: .vae, name: "flux2-full-encoder-small-decoder.safetensors",
-                      url: hf("black-forest-labs/FLUX.2-small-decoder", "full_encoder_small_decoder.safetensors"), approxBytes: 249_519_092),
-            ]),
-        ImageBundle(
-            id: "flux2-klein-9b", name: "FLUX.2 klein · Detailed", arch: "flux2",
-            note: "Text to image · higher fidelity · Apache-2.0 · ~11 GB",
-            licenseName: "Apache-2.0",
-            licenseNote: "Apache-2.0 model bundle from Black Forest Labs. Slate downloads the three files only after you review the provider terms.",
-            modelCardURL: URL(string: "https://huggingface.co/leejet/FLUX.2-klein-9B-GGUF")!,
-            licenseURL: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!,
-            requiresReferenceImage: false,
-            files: [
-                .init(role: .diffusion, name: "flux-2-klein-9b-Q4_0.gguf",
-                      url: hf("leejet/FLUX.2-klein-9B-GGUF", "flux-2-klein-9b-Q4_0.gguf"), approxBytes: 5_616_208_032),
-                .init(role: .encoder, name: "Qwen3-8B-Q4_K_M.gguf",
-                      url: hf("unsloth/Qwen3-8B-GGUF", "Qwen3-8B-Q4_K_M.gguf"), approxBytes: 5_027_784_512),
-                .init(role: .vae, name: "flux2-full-encoder-small-decoder.safetensors",
-                      url: hf("black-forest-labs/FLUX.2-small-decoder", "full_encoder_small_decoder.safetensors"), approxBytes: 249_519_092),
-            ]),
         ImageBundle(
             id: "qwen-image-compact", name: "Qwen Image · Compact", arch: "qwenImage",
             note: "Text to image · smaller download · Apache-2.0 · ~12 GB",

@@ -21,12 +21,15 @@ func openDep(_ localPath: String, remote: Package.Dependency) -> Package.Depende
 let linkPro = ProcessInfo.processInfo.environment["SLATE_PRO"] == "1"
 
 var packageDependencies: [Package.Dependency] = [
-    openDep("../slate-engine", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-engine.git", exact: "0.1.2")),
+    openDep("../slate-engine", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-engine.git", exact: "0.1.3")),
     openDep("../slate-ui", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-ui.git", exact: "0.1.0")),
     // Qwen3-TTS premium voice (MLX/Metal). Pinned by revision - the repo tags
     // nothing; a moving `main` must never silently change what we ship. App-only.
     .package(url: "https://github.com/AtomGradient/swift-qwen3-tts.git",
              revision: "27a5b5b2c5d55258bead2c6e851208987e1ca225"),
+    // Slate Remote wire protocol (shared with the iOS companion). Local sibling at
+    // the repo root; Package.swift is also at the root, so the path is unprefixed.
+    .package(path: "SlateRemoteProtocol"),
 ]
 
 var appDependencies: [Target.Dependency] = [
@@ -40,6 +43,7 @@ var appDependencies: [Target.Dependency] = [
     .product(name: "SlateFlowCleanup", package: "slate-engine"),
     .product(name: "SlateUI", package: "slate-ui"),
     .product(name: "Qwen3TTS", package: "swift-qwen3-tts"),
+    .product(name: "SlateRemoteProtocol", package: "SlateRemoteProtocol"),
 ]
 
 // `SLATE_PRO` is emitted iff the private paid layer is actually linked, so `#if

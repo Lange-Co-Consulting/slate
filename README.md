@@ -55,7 +55,24 @@ small speech models ship.
 
 </div>
 
-## Quick start
+## Install
+
+**[⬇ Download Slate for Mac](https://github.com/Lange-Co-Consulting/slate/releases/latest/download/Slate.dmg)**
+— Apple Silicon, macOS 26 or later.
+
+Open the disk image and drag Slate to Applications.
+
+> **First launch, current build:** the published build is signed with our own key, so
+> macOS will say it can't verify the developer. Right-click the app → **Open** → **Open**,
+> once. Our Apple Developer ID came through on 2026-07-24 and the 1.0 release is
+> Developer-ID signed and notarized, which removes this step for good.
+
+Slate is free to use and ships **no** chat or image models: open the Model Manager and
+pick one, or connect an OpenAI-compatible endpoint with your own key. A one-time
+[Slate Pro](https://slate-app.org/pricing.html) licence unlocks the paid surfaces; the
+same download serves both.
+
+## Build from source
 
 Requires an Apple Silicon Mac on **macOS 26+** and **Swift 6** (Xcode with the
 macOS 26 SDK).
@@ -99,6 +116,8 @@ flowchart TD
 ## Project layout
 
 - `SlateApp/`: the SwiftUI app and orchestration
+- `SlateRemote/`: the native SwiftUI iOS companion (beta) — pairs to your Mac over the home LAN
+- `SlateRemoteProtocol/`: the shared Mac↔iPhone wire protocol (TLS-PSK WebSocket over Bonjour)
 - `Tools/SlateCLI`: `slatectl`, the bundled offline CLI (search, transcription, local-model Q&A for Terminal / Shortcuts)
 - `Scripts/`, `SlateApp/Packaging/`: verify / version / package scripts
 

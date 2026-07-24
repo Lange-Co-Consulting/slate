@@ -1,0 +1,10 @@
+# Xcode build artifacts
+build/
+.build-ios/
+DerivedData/
+*.xcarchive
+*.ipa
+# User-specific Xcode state (the shared scheme IS committed)
+**/xcuserdata/
+*.xcuserstate
+.DS_Store

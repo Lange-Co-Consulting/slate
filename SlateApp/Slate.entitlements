@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <!-- Slate opens Terminal via an Apple Event for the provider-login command
+       (Settings ▸ Code). Under the hardened runtime this is blocked without the
+       entitlement, so every notarized build would silently fall back to copying
+       the command to the clipboard. -->
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
   <key>com.apple.security.device.audio-input</key>
   <true/>
   <key>com.apple.security.network.client</key>

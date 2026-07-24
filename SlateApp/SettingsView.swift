@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var showNotices = false
     @State private var confirmReset = false
     @State private var confirmDelete = false
+    @State private var skillImportNote: String?
     @State private var operationMessage: String?
     // Add-cloud-model form
     @State private var newPreset = "openai"
@@ -34,7 +35,7 @@ struct SettingsView: View {
     @State private var projectMemories: [ProjectMemorySummary] = []
 
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general, license, dictation, memory, models, skills, hardware, network, cloud, security, privacy, diagnostics, about
+        case general, license, dictation, memory, models, skills, hardware, network, remote, cloud, security, privacy, diagnostics, about
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -46,6 +47,7 @@ struct SettingsView: View {
             case .skills:    return "Skills"
             case .hardware:  return "Hardware"
             case .network:   return "Network Access"
+            case .remote:    return "Remote"
             case .cloud:     return "Cloud"
             case .security:  return "Security"
             case .privacy:   return "Privacy & Data"
@@ -63,6 +65,7 @@ struct SettingsView: View {
             case .skills:    return "puzzlepiece.extension"
             case .hardware:  return "memorychip"
             case .network:   return "network"
+            case .remote:    return "iphone.and.arrow.forward"
             case .cloud:     return "cloud"
             case .security:  return "lock.shield"
             case .privacy:   return "lock.shield"
@@ -80,6 +83,7 @@ struct SettingsView: View {
             case .skills:    return "skills instructions prompts packs offline capabilities agents rules"
             case .hardware:  return "hardware mac chip cpu gpu ram memory apple silicon"
             case .network:   return "network internet offline silent mode block downloads updates licence license cloud privacy air gap"
+            case .remote:    return "remote iphone phone pairing qr code lan wifi companion app slate remote"
             case .cloud:     return "cloud claude code cli anthropic openai opencode api key provider model connect"
             case .security:  return "security permissions approval auto autopilot skip dangerous shell delete commands"
             case .privacy:   return "privacy data export import audit reset delete"
@@ -110,6 +114,13 @@ struct SettingsView: View {
                let t = SettingsTab(rawValue: target) {
                 tab = t
             }
+            model.pendingSettingsTab = nil
+        }
+        // If Settings is ALREADY open when a deep-link fires (e.g. an upsell shown from
+        // inside Settings), .onAppear has already run — switch tabs on the change too.
+        .onChange(of: model.pendingSettingsTab) { _, target in
+            guard let target, let t = SettingsTab(rawValue: target) else { return }
+            tab = t
             model.pendingSettingsTab = nil
         }
         // ColorPicker uses AppKit's process-wide NSColorPanel. Without an
@@ -197,6 +208,7 @@ struct SettingsView: View {
             case .skills:    skillsTab
             case .hardware:  hardwareTab
             case .network:   networkTab
+            case .remote:    RemoteSettingsView()
             case .cloud:     cloudTab
             case .security:  securityTab
             case .privacy:   privacyTab
@@ -401,6 +413,9 @@ struct SettingsView: View {
                 model.showSettings = false   // close Settings so the popups can show
             }
             Toggle("Show Slate in the menu bar", isOn: $settings.menuBarEnabled)
+            Toggle("Full-width chat", isOn: $settings.fullWidthChat)
+            Text("Let the chat transcript and composer span the whole pane instead of a centered reading column.")
+                .font(.caption2).foregroundStyle(.secondary)
         }
         Section("Slate Quick") {
             Toggle("Enable global Quick panel", isOn: $settings.quickEnabled)
@@ -449,7 +464,7 @@ struct SettingsView: View {
         }
         Section("Context window") {
             Picker("Window", selection: $settings.contextWindow) {
-                ForEach(AppSettings.contextWindowOptions, id: \.self) { n in
+                ForEach(AppSettings.contextWindowOptions(trainedMax: model.activeTrainedContext, current: settings.contextWindow), id: \.self) { n in
                     Text(TokenEstimate.short(n) + " tokens").tag(n)
                 }
             }
@@ -748,22 +763,42 @@ struct SettingsView: View {
                 Text("No skills installed yet.").font(.callout).foregroundStyle(.secondary)
             }
             ForEach(model.installedSkills) { skill in
-                Toggle(isOn: Binding(
-                    get: { model.isSkillEnabled(skill) },
-                    set: { on in
-                        model.setSkillEnabled(skill, enabled: on)
-                    })) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(skill.name).font(.callout)
-                        if !skill.description.isEmpty {
-                            Text(skill.description).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                HStack(spacing: 8) {
+                    Toggle(isOn: Binding(
+                        get: { model.isSkillEnabled(skill) },
+                        set: { on in model.setSkillEnabled(skill, enabled: on) })) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(skill.name).font(.callout)
+                            if !skill.description.isEmpty {
+                                Text(skill.description).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                            }
                         }
                     }
+                    Button(role: .destructive) {
+                        model.removeSkill(skill)      // moves the folder to the Trash (recoverable)
+                    } label: {
+                        Image(systemName: "trash").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Remove this skill (moves its folder to the Trash)")
                 }
+            }
+            if let skillImportNote {
+                Text(skillImportNote).font(.caption2).foregroundStyle(.secondary)
             }
             HStack {
                 Button("Open skills folder…") { NSWorkspace.shared.open(Skills.directory()) }
                 Button("Rescan") { model.rescanSkills() }
+                Button("Import from Claude…") {
+                    Task {
+                        let found = await model.discoverClaudeSkills()
+                        model.importSkills(found)
+                        skillImportNote = found.isEmpty
+                            ? "No new Claude skills found in ~/.claude."
+                            : "Imported \(found.count) skill(s) from Claude — enable the ones you want above."
+                    }
+                }
+                .help("Find skills you already have under ~/.claude and copy them in")
                 Spacer()
                 Button("Add example skill") { Skills.writeExample(); model.rescanSkills() }
             }
@@ -1343,7 +1378,7 @@ struct ConversationSettingsView: View {
                     InfoHint(text: "How much of the conversation the model can see at once, in tokens. Bigger windows remember more but need much more RAM (KV cache). Applies app-wide; changing it reloads the model.")
                     Spacer()
                     Picker("", selection: $settings.contextWindow) {
-                        ForEach(AppSettings.contextWindowOptions, id: \.self) { n in
+                        ForEach(AppSettings.contextWindowOptions(trainedMax: model.activeTrainedContext, current: settings.contextWindow), id: \.self) { n in
                             Text(TokenEstimate.short(n)).tag(n)
                         }
                     }
