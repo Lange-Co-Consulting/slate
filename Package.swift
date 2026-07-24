@@ -21,7 +21,7 @@ func openDep(_ localPath: String, remote: Package.Dependency) -> Package.Depende
 let linkPro = ProcessInfo.processInfo.environment["SLATE_PRO"] == "1"
 
 var packageDependencies: [Package.Dependency] = [
-    openDep("../slate-engine", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-engine.git", exact: "0.1.3")),
+    openDep("../slate-engine", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-engine.git", exact: "0.1.5")),
     openDep("../slate-ui", remote: .package(url: "https://github.com/Lange-Co-Consulting/slate-ui.git", exact: "0.1.0")),
     // Qwen3-TTS premium voice (MLX/Metal). Pinned by revision - the repo tags
     // nothing; a moving `main` must never silently change what we ship. App-only.

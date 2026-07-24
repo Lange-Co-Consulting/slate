@@ -1205,9 +1205,9 @@ struct ConversationView: View {
                             // quiet centered header, not a saturated chat bubble that
                             // reads badly (and unreadable under the glass header).
                             if convo.kind == .agents, msg.role == .user {
-                                RoundtableTopicHeader(text: msg.content)
+                                RoundtableTopicHeader(text: msg.content, fullWidth: model.settings.fullWidthChat)
                             } else if convo.kind == .agents, msg.speaker == "Synthesis" {
-                                RoundtableSynthesisCard(text: msg.content)
+                                RoundtableSynthesisCard(text: msg.content, fullWidth: model.settings.fullWidthChat)
                             } else {
                                 let meta = rt[msg.id]
                                 if let round = meta?.roundStart {

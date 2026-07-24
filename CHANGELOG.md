@@ -20,6 +20,19 @@ see the Releases page._
 
 ### Fixed
 
+- **Hidden reasoning no longer shows up as the answer.** Models whose chat template
+  pre-fills the opening `<think>` tag (Qwen3, DeepSeek-R1) emit only the closing tag,
+  which Slate did not recognise — so the whole chain of thought was rendered as the
+  reply. Most visible in a roundtable.
+- **A split model is one model again.** Large GGUFs shipped in parts
+  (`…-00001-of-00003.gguf`) were listed once per part, which also looked like duplicates
+  in the model picker. They now appear as a single entry with the full size.
+- **Full-width chat now applies to roundtables too** — the synthesis card and topic
+  header used to stay narrow even with the setting on.
+- **Roundtable seats are tellable apart.** A seat's persona is now part of its speaker
+  name, so three seats on the same model no longer read as the model name plus a number.
+- The roundtable model picker **marks the model already loaded in chat**, so starting a
+  debate no longer silently evicts it without warning.
 - The **voice button** no longer does nothing when no local model is loaded. It stays
   tappable and explains what it needs, with a one-tap way to load a model.
 - **Roundtable** no longer shows a white bar along the bottom of the window in light

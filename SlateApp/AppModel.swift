@@ -945,7 +945,13 @@ final class AppModel {
         for (i, ref) in refs.enumerated() {
             guard engines[ref] != nil else { continue }
             let persona = i < personas.count ? personas[i] : ""
-            let name = uniqueRoundtableName(engineName[ref] ?? SpeakerStyle.seatName(ref), taken: roster.map(\.name))
+            // Put the persona in the SPEAKER name, not just the seat rail. Three seats on
+            // the same model used to read "Qwen3", "Qwen3 (2)", "Qwen3 (3)" in the
+            // transcript — indistinguishable exactly when you need to tell them apart.
+            let base = engineName[ref] ?? SpeakerStyle.seatName(ref)
+            let trimmedPersona = persona.trimmingCharacters(in: .whitespacesAndNewlines)
+            let label = trimmedPersona.isEmpty ? base : "\(base) · \(trimmedPersona)"
+            let name = uniqueRoundtableName(label, taken: roster.map(\.name))
             roster.append(RoundtableParticipant(id: "\(roster.count):\(ref)", modelRef: ref,
                                                 name: name, persona: persona, index: roster.count))
         }

@@ -183,6 +183,7 @@ struct RoundtableRoundDivider: View {
 struct RoundtableSynthesisCard: View {
     @Environment(\.colorScheme) private var scheme
     let text: String
+    var fullWidth: Bool = false
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
@@ -205,7 +206,10 @@ struct RoundtableSynthesisCard: View {
                                                   Color(hue: 0.73, saturation: 0.6, brightness: 0.95).opacity(0.35),
                                                   Color(hue: 0.34, saturation: 0.6, brightness: 0.9).opacity(0.45)],
                                          startPoint: .leading, endPoint: .trailing), lineWidth: 1))
-        .frame(maxWidth: 620)
+        // Honour Full-width chat (Settings ▸ General). The transcript container already
+        // expands; without this the synthesis card stayed pinned at 620pt inside it, so
+        // turning the setting on visibly did nothing for a roundtable.
+        .frame(maxWidth: fullWidth ? .infinity : 620)
         .frame(maxWidth: .infinity)
     }
 }
@@ -215,6 +219,7 @@ struct RoundtableSynthesisCard: View {
 /// readable, and it never reads as one participant's message.
 struct RoundtableTopicHeader: View {
     let text: String
+    var fullWidth: Bool = false
     var body: some View {
         VStack(spacing: 7) {
             Text("TOPIC")
@@ -226,7 +231,7 @@ struct RoundtableTopicHeader: View {
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: 560)
+        .frame(maxWidth: fullWidth ? 900 : 560)   // a centred title stays readable; it must not span a 2000pt window
         .padding(.horizontal, 22).padding(.vertical, 14)
         .frame(maxWidth: .infinity)
     }
@@ -464,7 +469,13 @@ struct RoundtableSetup: View {
                         Button {
                             addSeat(c.ref)
                         } label: {
-                            Text(c.isLocal ? "\(c.name)  ·  \(c.detail)" : "\(c.name)  ·  Cloud")
+                            // Mark the model already resident in chat. Starting a roundtable
+                            // frees the chat engine to make room, so seating THIS one keeps
+                            // your chat model loaded instead of silently evicting it.
+                            let isLoaded = c.isLocal && c.ref == model.activeModelURL?.path
+                            Text(c.isLocal
+                                 ? "\(c.name)  ·  \(c.detail)\(isLoaded ? "  ·  loaded in chat" : "")"
+                                 : "\(c.name)  ·  Cloud")
                         }
                     }
                 }
