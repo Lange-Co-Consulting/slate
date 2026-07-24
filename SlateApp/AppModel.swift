@@ -407,6 +407,10 @@ final class AppModel {
     /// Agent Chat: the roundtable's own engine pool, keyed by model ref. Held for
     /// the duration of one roundtable and torn down on completion, Stop, or panic.
     private var roundtableEngines: [String: any LLMEngine] = [:]
+    /// The chat model the roundtable evicted to free RAM, so it can be put back when the
+    /// table breaks up. Restoring only on the failure path left a user who ran a roundtable
+    /// successfully with no model loaded at all, and no hint why.
+    private var roundtableRestoreURL: URL?
     /// True from the moment a roundtable genTask is created until it truly exits
     /// (its defer). Unlike `isGenerating` (which Stop clears immediately, while the
     /// task may still be winding an uninterruptible seat load down) this stays set,
@@ -731,9 +735,16 @@ final class AppModel {
                 self.streamingText = ""; self.streamingSpeaker = nil; self.streamingSpeakerIndex = nil
                 self.streamingRound = nil
                 self.roundtableActive = false
+                // The roundtable borrowed the chat model's RAM; give it back. Guarded so a
+                // model the user loaded in the meantime is never yanked out from under them.
+                if let restore = self.roundtableRestoreURL {
+                    self.roundtableRestoreURL = nil
+                    if self.engine == nil, !self.usingCloud { self.loadModel(restore) }
+                }
             }
             let build = await self.buildRoundtable(refs: refs, personas: personas, force: force)
             self.roundtableEngines = build.engines
+            self.roundtableRestoreURL = build.unloaded
             // Stopped during the (uninterruptible-per-seat) assembly phase: drop the
             // partially built pool via the defer and exit quietly - no error, no reload.
             if Task.isCancelled { return }
@@ -755,9 +766,6 @@ final class AppModel {
                 // recourse here).
                 let msg = "Couldn't load the chosen models - most likely not enough free memory. Close other apps, or pick smaller or fewer models, then Retry."
                 self.appendAssistant("⚠️ \(msg)", to: id)
-                // Nothing ran, but we already freed the resident chat model to make
-                // room - restore it so the user isn't stranded with no model loaded.
-                if let restore = build.unloaded { self.loadModel(restore) }
                 self.notify(.warning, msg, actionLabel: "Retry") { [weak self] in
                     self?.runRoundtable(topic: topic, in: id, force: true)
                 }
@@ -1465,8 +1473,10 @@ final class AppModel {
     /// hang the whole Mac (a model bigger than what will be free after the current
     /// model unloads, or fundamentally too big for this Mac). nil = safe to load.
     private func memoryRiskLoading(_ url: URL) -> String? {
-        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size > 0 else { return nil }
-        let bytes = Int64(size)
+        // Size the WHOLE split-GGUF set, not just the first shard — otherwise a 100 GB
+        // model measures ~40 GB here and the guard waves through a load that hangs the Mac.
+        let bytes = ModelCatalog.totalBytes(of: url)
+        guard bytes > 0 else { return nil }
         let modelGB = Double(bytes) / 1_073_741_824
         // Free RAM AFTER the current model (loadModel unloads it first) is released.
         var freeGB = max(0, ram.totalGB - ram.usedGB)
@@ -1866,6 +1876,7 @@ final class AppModel {
         engine = nil                 // drop our reference → deinit frees model + ctx (+ mtmd)
         for e in roundtableEngines.values { e.requestStop() }  // Agent Chat: free its whole pool
         roundtableEngines = [:]
+        roundtableRestoreURL = nil
         roundtableActive = false
         activeModelURL = nil
         usingCloud = false

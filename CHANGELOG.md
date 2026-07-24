@@ -27,6 +27,14 @@ see the Releases page._
 - **A split model is one model again.** Large GGUFs shipped in parts
   (`…-00001-of-00003.gguf`) were listed once per part, which also looked like duplicates
   in the model picker. They now appear as a single entry with the full size.
+- **A roundtable gives your chat model back.** Starting one frees the chat model to make
+  RAM room for the seats; that model is now reloaded when the table breaks up, on every
+  exit path. Previously it came back only if the roundtable had failed to start.
+- **Loading a model from the Model Manager now sticks.** It was the one place that loaded
+  a model without pinning it to the conversation, so the chat had nothing to fall back on.
+- **The memory guard sizes split models correctly.** A multi-part model was measured by
+  its first part only, so a very large one could slip past the check that stops your Mac
+  from freezing.
 - **Full-width chat now applies to roundtables too** — the synthesis card and topic
   header used to stay narrow even with the setting on.
 - **Roundtable seats are tellable apart.** A seat's persona is now part of its speaker

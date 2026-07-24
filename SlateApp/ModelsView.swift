@@ -462,7 +462,7 @@ struct ModelsView: View {
                             .accessibilityLabel(name)
                             .accessibilityValue(value)
                         Button("Load \(name)") {
-                            model.loadModel(m.url)
+                            model.pickLocalModel(m.url)
                             dismiss()
                         }
                         Button("Delete \(name)") {
@@ -486,7 +486,7 @@ struct ModelsView: View {
             fitBadge(bytes: m.bytes)
             if m.url != model.activeModelURL {
                 Button("Load") {
-                    model.loadModel(m.url)
+                    model.pickLocalModel(m.url)
                     dismiss()
                 }
                 .buttonStyle(ActionGlassButtonStyle(prominent: true))
